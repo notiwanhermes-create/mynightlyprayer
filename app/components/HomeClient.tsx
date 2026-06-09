@@ -180,7 +180,7 @@ export default function HomeClient() {
                 className="fade-up d5 hero-price"
                 style={{ fontSize:"0.78rem", fontWeight:300, color:"var(--muted)", letterSpacing:"0.04em" }}
               >
-                $9.99/month · Delivered at your chosen bedtime · Cancel anytime
+                $5.99/month · Delivered at your chosen bedtime · Cancel anytime
               </p>
             </div>
 
@@ -414,7 +414,7 @@ export default function HomeClient() {
                       className="font-display text-gold"
                       style={{ fontSize:"4rem", fontWeight:400, lineHeight:1 }}
                     >
-                      9.99
+                      5.99
                     </span>
                     <span
                       style={{
