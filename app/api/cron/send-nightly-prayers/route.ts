@@ -157,10 +157,11 @@ async function run(req: NextRequest) {
       });
 
       const { emailId } = await sendPrayerEmail({
-        to:         sub.email,
-        firstName:  sub.first_name ?? "Friend",
+        to:              sub.email,
+        firstName:       sub.first_name ?? "Friend",
         subject,
         prayerText,
+        managementToken: sub.management_token ?? "",
       });
 
       await db.from("sent_prayers").insert({

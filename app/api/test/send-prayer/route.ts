@@ -86,10 +86,11 @@ async function run(req: NextRequest) {
     const testSubject = `[TEST] ${subject}`;
 
     const { emailId } = await sendPrayerEmail({
-      to:         sub.email,
-      firstName:  sub.first_name ?? "Friend",
-      subject:    testSubject,
+      to:              sub.email,
+      firstName:       sub.first_name ?? "Friend",
+      subject:         testSubject,
       prayerText,
+      managementToken: sub.management_token ?? "",
     });
 
     /* Save as test_sent — does not block real sends today */

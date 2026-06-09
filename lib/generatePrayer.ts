@@ -5,12 +5,11 @@
 
 import OpenAI from "openai";
 
-/* ── Types ── */
 export interface PrayerInput {
-  firstName:            string;
-  prayerFocus:          string;
-  tone:                 string;
-  optionalRequest?:     string;
+  firstName:        string;
+  prayerFocus:      string;
+  tone:             string;
+  optionalRequest?: string;
 }
 
 export interface PrayerOutput {
@@ -18,24 +17,28 @@ export interface PrayerOutput {
   prayerText: string;
 }
 
-/* ── Maps ── */
 const FOCUS_DESCRIPTIONS: Record<string, string> = {
   peace:       "peace and calm at the end of a long day",
   protection:  "protection and safety through the night",
   gratitude:   "gratitude and thankfulness for today's blessings",
   healing:     "healing — physical, emotional, or spiritual",
   forgiveness: "forgiveness, release, and letting go",
+  family:      "family, loved ones, and meaningful relationships",
   strength:    "strength, hope, and courage for tomorrow",
 };
 
 const TONE_DESCRIPTIONS: Record<string, string> = {
+  /* original signup values */
   gentle:       "gentle, soft, and tender — like a quiet lullaby",
   traditional:  "traditional and reverent, drawing on classic prayer language",
   contemporary: "contemporary and conversational, warm and relatable",
   poetic:       "poetic and literary, with beautiful imagery",
+  /* manage page values */
+  peaceful:     "short, simple, and peacefully direct — under 80 words",
+  emotional:    "deep and emotional, heartfelt and sincere",
+  faith:        "faith-filled and scripture-inspired",
 };
 
-/* ── Main function ── */
 export async function generatePrayer(input: PrayerInput): Promise<PrayerOutput> {
   const { firstName, prayerFocus, tone, optionalRequest } = input;
 

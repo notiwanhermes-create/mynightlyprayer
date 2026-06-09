@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { randomBytes } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    const rawBody = await req.text(); // must be raw — not parsed
+    const rawBody = await req.text();
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -39,16 +40,14 @@ export async function POST(req: NextRequest) {
 
   console.log(`[webhook] Event received: ${event.type}`);
 
-  /* ── Handle events ── */
   try {
     const db = getSupabaseAdmin();
 
     switch (event.type) {
 
-      /* ────────────────────────────────────────────
-         1. checkout.session.completed
-         Save new subscriber when payment goes through
-      ──────────────────────────────────────────── */
+      /* ──────────────────────────────────────────────────────
+         1. checkout.session.completed — save new subscriber
+      ────────────────────────────────────────────────────── */
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
@@ -64,42 +63,61 @@ export async function POST(req: NextRequest) {
           ? session.subscription : (session.subscription as Stripe.Subscription | null)?.id ?? "";
 
         if (!subscriptionId) {
-          console.error("[webhook] No subscription ID on checkout session — skipping upsert");
+          console.error("[webhook] No subscription ID — skipping");
           break;
         }
 
-        const row = {
-          first_name:                 metadata.firstName          ?? "",
-          email:                      session.customer_email      ?? metadata.email ?? "",
-          delivery_time:              metadata.deliveryTime        ?? "",
-          timezone:                   metadata.timezone            ?? "",
-          prayer_focus:               metadata.prayerFocus         ?? "",
-          tone:                       metadata.tone                ?? "",
+        /* Preserve existing management_token if subscriber already exists */
+        const { data: existing } = await db
+          .from("subscribers")
+          .select("id, management_token")
+          .eq("stripe_subscription_id", subscriptionId)
+          .maybeSingle();
+
+        const managementToken = existing?.management_token ?? randomBytes(32).toString("hex");
+
+        const fields = {
+          first_name:                 metadata.firstName      ?? "",
+          email:                      session.customer_email  ?? metadata.email ?? "",
+          delivery_time:              metadata.deliveryTime   ?? "",
+          timezone:                   metadata.timezone       ?? "",
+          prayer_focus:               metadata.prayerFocus    ?? "",
+          tone:                       metadata.tone           ?? "",
           stripe_customer_id:         customerId,
           stripe_subscription_id:     subscriptionId,
           stripe_checkout_session_id: session.id,
           subscription_status:        "active",
-          last_payment_status:        session.payment_status       ?? "",
+          last_payment_status:        session.payment_status  ?? "",
           is_active:                  true,
+          management_token:           managementToken,
           updated_at:                 new Date().toISOString(),
         };
 
-        const { error } = await db
-          .from("subscribers")
-          .upsert(row, { onConflict: "stripe_subscription_id" });
-
-        if (error) {
-          console.error("[webhook] Supabase upsert error:", error.message);
+        let dbError;
+        if (existing) {
+          const { error } = await db
+            .from("subscribers")
+            .update(fields)
+            .eq("id", existing.id);
+          dbError = error;
         } else {
-          console.log(`[webhook] Subscriber saved → ${row.email} (${subscriptionId})`);
+          const { error } = await db
+            .from("subscribers")
+            .insert(fields);
+          dbError = error;
+        }
+
+        if (dbError) {
+          console.error("[webhook] Supabase error:", dbError.message);
+        } else {
+          console.log(`[webhook] Subscriber saved → ${fields.email} (${subscriptionId})`);
         }
         break;
       }
 
-      /* ────────────────────────────────────────────
-         2. customer.subscription.updated
-         Keep status in sync when plan changes
-      ──────────────────────────────────────────── */
+      /* ──────────────────────────────────────────────────────
+         2. customer.subscription.updated — sync status
+      ────────────────────────────────────────────────────── */
       case "customer.subscription.updated": {
         const sub      = event.data.object as Stripe.Subscription;
         const isActive = sub.status === "active" || sub.status === "trialing";
@@ -113,18 +131,14 @@ export async function POST(req: NextRequest) {
           })
           .eq("stripe_subscription_id", sub.id);
 
-        if (error) {
-          console.error("[webhook] Supabase update error:", error.message);
-        } else {
-          console.log(`[webhook] Subscription updated → ${sub.id} : ${sub.status}`);
-        }
+        if (error) console.error("[webhook] Update error:", error.message);
+        else console.log(`[webhook] Subscription updated → ${sub.id} : ${sub.status}`);
         break;
       }
 
-      /* ────────────────────────────────────────────
-         3. customer.subscription.deleted
-         Mark subscriber inactive on cancellation
-      ──────────────────────────────────────────── */
+      /* ──────────────────────────────────────────────────────
+         3. customer.subscription.deleted — mark canceled
+      ────────────────────────────────────────────────────── */
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
 
@@ -133,15 +147,13 @@ export async function POST(req: NextRequest) {
           .update({
             subscription_status: "canceled",
             is_active:           false,
+            canceled_at:         new Date().toISOString(),
             updated_at:          new Date().toISOString(),
           })
           .eq("stripe_subscription_id", sub.id);
 
-        if (error) {
-          console.error("[webhook] Supabase update error:", error.message);
-        } else {
-          console.log(`[webhook] Subscription canceled → ${sub.id}`);
-        }
+        if (error) console.error("[webhook] Update error:", error.message);
+        else console.log(`[webhook] Subscription canceled → ${sub.id}`);
         break;
       }
 
