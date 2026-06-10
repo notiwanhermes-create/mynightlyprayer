@@ -512,8 +512,8 @@ export default function HomeClient() {
           max-width:       180px;
         }
         .mini-step-circle {
-          width:           36px;
-          height:          36px;
+          width:           48px;
+          height:          48px;
           border-radius:   50%;
           border:          1px solid rgba(201,169,110,0.3);
           background:      rgba(201,169,110,0.06);
@@ -521,9 +521,10 @@ export default function HomeClient() {
           align-items:     center;
           justify-content: center;
           flex-shrink:     0;
+          font-size:       1.1rem;
         }
         .mini-step-label {
-          font-size:   0.78rem;
+          font-size:   0.88rem;
           font-weight: 300;
           color:       rgba(240,232,216,0.5);
           line-height: 1.4;
@@ -532,7 +533,7 @@ export default function HomeClient() {
           width:       40px;
           height:      1px;
           background:  rgba(201,169,110,0.18);
-          margin-top:  18px;
+          margin-top:  24px;
           flex-shrink: 0;
         }
         @media (max-width: 520px) {
