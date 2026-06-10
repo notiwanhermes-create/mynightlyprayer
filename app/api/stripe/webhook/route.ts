@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { randomBytes } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { sendWelcomeEmail } from "@/lib/sendWelcomeEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,10 +68,10 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        /* Preserve existing management_token if subscriber already exists */
+        /* Preserve existing management_token; also read welcome_email_sent_at for duplicate guard */
         const { data: existing } = await db
           .from("subscribers")
-          .select("id, management_token")
+          .select("id, management_token, welcome_email_sent_at")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
 
@@ -111,6 +112,28 @@ export async function POST(req: NextRequest) {
           console.error("[webhook] Supabase error:", dbError.message);
         } else {
           console.log(`[webhook] Subscriber saved → ${fields.email} (${subscriptionId})`);
+
+          /* Send welcome email once per subscription */
+          if (!existing?.welcome_email_sent_at && fields.email) {
+            try {
+              await sendWelcomeEmail({
+                to:              fields.email,
+                firstName:       fields.first_name,
+                deliveryTime:    fields.delivery_time,
+                managementToken: managementToken,
+              });
+              await db
+                .from("subscribers")
+                .update({ welcome_email_sent_at: new Date().toISOString() })
+                .eq("stripe_subscription_id", subscriptionId);
+              console.log(`[webhook] Welcome email sent → ${fields.email}`);
+            } catch (emailErr) {
+              console.error(
+                "[webhook] Welcome email failed (non-fatal):",
+                emailErr instanceof Error ? emailErr.message : emailErr,
+              );
+            }
+          }
         }
         break;
       }
