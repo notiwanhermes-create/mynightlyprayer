@@ -120,7 +120,7 @@ const headingStyle: React.CSSProperties = {
   fontSize:    "clamp(1.6rem, 4vw, 2.4rem)",
   fontWeight:  400,
   fontStyle:   "italic",
-  color:       "var(--cream)",
+  color:       "var(--navy-text)",
   lineHeight:  1.2,
   marginBottom: 20,
 };
@@ -129,5 +129,5 @@ const bodyStyle: React.CSSProperties = {
   fontSize:    "1rem",
   fontWeight:  300,
   lineHeight:  1.85,
-  color:       "rgba(240,232,216,0.55)",
+  color:       "var(--secondary-text)",
 };

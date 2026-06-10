@@ -164,18 +164,18 @@ export default function ManageClient({
           gap:           8,
           padding:       "5px 14px",
           borderRadius:  20,
-          border:        `1px solid ${isActive ? "rgba(201,169,110,0.35)" : "rgba(240,232,216,0.15)"}`,
-          background:    isActive ? "rgba(201,169,110,0.07)" : "rgba(240,232,216,0.04)",
+          border:        `1px solid ${isActive ? "rgba(198,161,91,0.4)" : "rgba(16,42,67,0.15)"}`,
+          background:    isActive ? "rgba(198,161,91,0.08)" : "rgba(16,42,67,0.04)",
           fontSize:      "0.7rem",
           letterSpacing: "0.14em",
           textTransform: "uppercase",
-          color:         isActive ? "var(--gold)" : "rgba(240,232,216,0.35)",
+          color:         isActive ? "var(--gold)" : "var(--secondary-text)",
         }}>
           <span style={{
             width:        6,
             height:       6,
             borderRadius: "50%",
-            background:   isActive ? "var(--gold)" : "rgba(240,232,216,0.3)",
+            background:   isActive ? "var(--gold)" : "var(--secondary-text)",
             flexShrink:   0,
           }} />
           {isActive ? "Active" : "Paused"}
@@ -270,7 +270,7 @@ export default function ManageClient({
           <div style={{ marginBottom: 4 }}>
             <label htmlFor="m-prayerRequest" className="form-label">
               Personal prayer request{" "}
-              <span style={{ color: "rgba(240,232,216,0.3)", fontWeight: 300, letterSpacing: 0 }}>
+              <span style={{ color: "rgba(16,42,67,0.38)", fontWeight: 300, letterSpacing: 0 }}>
                 (optional)
               </span>
             </label>
@@ -310,7 +310,7 @@ export default function ManageClient({
         <p style={{ margin: "0 0 6px", ...eyebrowStyle }}>
           {isActive ? "Pause prayers" : "Resume prayers"}
         </p>
-        <p style={{ margin: "0 0 16px", fontSize: "0.88rem", color: "rgba(240,232,216,0.45)", lineHeight: 1.7 }}>
+        <p style={{ margin: "0 0 16px", fontSize: "0.88rem", color: "var(--secondary-text)", lineHeight: 1.7 }}>
           {isActive
             ? "Need a break? Pause your emails and resume whenever you're ready."
             : "Ready to start again? Resume your nightly prayers now."}
@@ -329,9 +329,9 @@ export default function ManageClient({
             gap:          8,
             padding:      "11px 24px",
             borderRadius: 8,
-            border:       "1px solid rgba(240,232,216,0.18)",
+            border:       "1px solid rgba(16,42,67,0.18)",
             background:   "transparent",
-            color:        "rgba(240,232,216,0.6)",
+            color:        "var(--navy-text)",
             fontSize:     "0.85rem",
             letterSpacing: "0.04em",
             cursor:       toggling ? "not-allowed" : "pointer",
@@ -348,10 +348,10 @@ export default function ManageClient({
 
       {/* ─── Cancel subscription ─── */}
       <div style={{ ...sectionCardStyle, textAlign: "center" }}>
-        <p style={{ margin: "0 0 6px", fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(240,232,216,0.25)" }}>
+        <p style={{ margin: "0 0 6px", fontSize: "0.68rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(16,42,67,0.45)" }}>
           Cancel subscription
         </p>
-        <p style={{ margin: "0 0 16px", fontSize: "0.88rem", color: "rgba(240,232,216,0.35)", lineHeight: 1.7 }}>
+        <p style={{ margin: "0 0 16px", fontSize: "0.88rem", color: "var(--secondary-text)", lineHeight: 1.7 }}>
           You'll be taken to the Stripe billing portal to cancel your subscription.
         </p>
         <a
@@ -360,7 +360,7 @@ export default function ManageClient({
             display:      "inline-flex",
             alignItems:   "center",
             fontSize:     "0.82rem",
-            color:        "rgba(240,232,216,0.3)",
+            color:        "rgba(16,42,67,0.5)",
             letterSpacing: "0.04em",
             textDecoration: "underline",
             textUnderlineOffset: 3,
@@ -390,15 +390,15 @@ const headingStyle: React.CSSProperties = {
   fontSize:    "clamp(1.6rem, 4vw, 2.2rem)",
   fontWeight:  400,
   fontStyle:   "italic",
-  color:       "var(--cream)",
+  color:       "var(--navy-text)",
   lineHeight:  1.25,
   marginBottom: 24,
   textAlign:   "center",
 };
 
 const sectionCardStyle: React.CSSProperties = {
-  background:    "rgba(13,27,42,0.55)",
-  border:        "1px solid rgba(201,169,110,0.12)",
+  background:    "rgba(255,255,255,0.72)",
+  border:        "1px solid rgba(16,42,67,0.1)",
   borderRadius:  12,
   padding:       "28px 28px 24px",
   marginBottom:  0,
@@ -406,7 +406,7 @@ const sectionCardStyle: React.CSSProperties = {
 
 const dividerStyle: React.CSSProperties = {
   height:     1,
-  background: "linear-gradient(to right, transparent, rgba(201,169,110,0.15), transparent)",
+  background: "linear-gradient(to right, transparent, rgba(198,161,91,0.3), transparent)",
   margin:     "24px 0",
 };
 
@@ -432,7 +432,7 @@ function noticeStyle(borderColor: string, bgColor: string): React.CSSProperties 
     padding:       "12px 16px",
     marginBottom:  24,
     fontSize:      "0.85rem",
-    color:         "rgba(240,232,216,0.7)",
+    color:         "var(--navy-text)",
     textAlign:     "center",
     lineHeight:    1.6,
   };
