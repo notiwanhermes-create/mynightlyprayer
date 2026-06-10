@@ -37,15 +37,12 @@ function buildHtml(firstName: string, prayerText: string, manageUrl: string, por
     <td align="center" style="padding:48px 20px 60px;">
       <table width="100%" style="max-width:540px;" cellpadding="0" cellspacing="0">
 
-        <!-- Logo -->
+        <!-- Wordmark -->
         <tr>
-          <td align="center" style="padding-bottom:32px;">
-            <img
-              src="https://mynightlyprayer.com/email-logo.png"
-              alt="My Nightly Prayer"
-              width="160"
-              style="width:160px;max-width:100%;height:auto;display:block;margin:0 auto;border-radius:6px;"
-            />
+          <td align="center" style="padding-bottom:36px;">
+            <p style="margin:0;font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:#c9a96e;">
+              ✦ &nbsp; N I G H T L Y &nbsp; P R A Y E R
+            </p>
           </td>
         </tr>
 
