@@ -20,23 +20,6 @@ export default function Navbar() {
         </span>
       </Link>
 
-      {/* Nav CTA */}
-      <Link
-        href="/#signup"
-        style={{
-          fontSize: "0.72rem",
-          fontWeight: 400,
-          letterSpacing: "0.08em",
-          color: "var(--gold)",
-          textDecoration: "none",
-          border: "1px solid rgba(198,161,91,0.45)",
-          padding: "8px 20px",
-          borderRadius: "2px",
-          transition: "background 0.2s",
-        }}
-      >
-        Start Tonight →
-      </Link>
     </nav>
   );
 }

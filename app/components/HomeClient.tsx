@@ -536,10 +536,10 @@ export default function HomeClient() {
           flex-shrink: 0;
         }
         @media (max-width: 520px) {
-          .mini-step { padding: 0 4px; }
-          .mini-step-label { font-size: 0.68rem; }
-          .mini-step-circle { width: 30px; height: 30px; }
-          .mini-step-line { width: 16px; margin-top: 15px; }
+          .mini-step { padding: 0 6px; }
+          .mini-step-label { font-size: 0.78rem; }
+          .mini-step-circle { width: 42px; height: 42px; font-size: 1rem; }
+          .mini-step-line { width: 22px; margin-top: 21px; }
         }
 
         /* ── Form grid ── */
