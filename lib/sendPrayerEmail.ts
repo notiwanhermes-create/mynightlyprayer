@@ -132,7 +132,7 @@ export async function sendPrayerEmail(input: SendPrayerEmailInput): Promise<Send
   if (!apiKey) throw new Error("[sendPrayerEmail] Missing env var: RESEND_API_KEY");
 
   const appUrl   = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-  const from     = process.env.FROM_EMAIL ?? "Nightly Prayer <onboarding@resend.dev>";
+  const from     = process.env.FROM_EMAIL || "My Nightly Prayer <prayers@mynightlyprayer.com>";
   const manageUrl = `${appUrl}/manage?token=${managementToken}`;
   const portalUrl = `${appUrl}/api/create-customer-portal?token=${managementToken}`;
 
