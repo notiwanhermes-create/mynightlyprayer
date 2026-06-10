@@ -12,10 +12,14 @@ export interface SendWelcomeEmailInput {
   managementToken: string;
 }
 
-function formatTime(t: string): string {
-  const [h, m] = t.split(":").map(Number);
-  const period  = h >= 12 ? "PM" : "AM";
-  const hour    = h % 12 || 12;
+function formatTime(t: string): string | null {
+  if (!t) return null;
+  const parts = t.split(":");
+  const h = parseInt(parts[0] ?? "", 10);
+  const m = parseInt(parts[1] ?? "0",  10);
+  if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  const period = h >= 12 ? "PM" : "AM";
+  const hour   = h % 12 || 12;
   return m === 0
     ? `${hour}:00 ${period}`
     : `${hour}:${String(m).padStart(2, "0")} ${period}`;
