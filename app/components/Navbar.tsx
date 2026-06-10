@@ -12,7 +12,7 @@ export default function Navbar() {
             fontSize: "1rem",
             fontWeight: 400,
             fontStyle: "italic",
-            color: "var(--cream)",
+            color: "var(--navy-text)",
             letterSpacing: "0.04em",
           }}
         >
@@ -29,7 +29,7 @@ export default function Navbar() {
           letterSpacing: "0.08em",
           color: "var(--gold)",
           textDecoration: "none",
-          border: "1px solid rgba(201,169,110,0.35)",
+          border: "1px solid rgba(198,161,91,0.45)",
           padding: "8px 20px",
           borderRadius: "2px",
           transition: "background 0.2s",

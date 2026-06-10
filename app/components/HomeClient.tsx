@@ -103,12 +103,11 @@ export default function HomeClient() {
       {/* ═══════════════════════════════════════ HERO */}
       <section
         style={{
-          minHeight:      "100vh",
           display:        "flex",
           flexDirection:  "column",
-          justifyContent: "center",
-          paddingTop:     96,
-          paddingBottom:  80,
+          justifyContent: "flex-start",
+          paddingTop:     140,
+          paddingBottom:  120,
           position:       "relative",
           zIndex:         1,
         }}
@@ -146,7 +145,7 @@ export default function HomeClient() {
                   fontWeight:    400,
                   fontStyle:     "italic",
                   lineHeight:    1.18,
-                  color:         "var(--cream)",
+                  color:         "var(--navy-text)",
                   marginBottom:  24,
                   letterSpacing: "-0.01em",
                 }}
@@ -161,7 +160,7 @@ export default function HomeClient() {
                   fontSize:     "1rem",
                   fontWeight:   300,
                   lineHeight:   1.85,
-                  color:        "rgba(240,232,216,0.6)",
+                  color:        "var(--secondary-text)",
                   maxWidth:     420,
                   marginBottom: 36,
                 }}
@@ -245,7 +244,7 @@ export default function HomeClient() {
                   fontSize:     "clamp(1.9rem, 4vw, 2.8rem)",
                   fontWeight:   400,
                   fontStyle:    "italic",
-                  color:        "var(--cream)",
+                  color:        "var(--navy-text)",
                   lineHeight:   1.2,
                   marginBottom: 14,
                 }}
@@ -257,7 +256,7 @@ export default function HomeClient() {
                   fontSize:   "0.9rem",
                   fontWeight: 300,
                   lineHeight: 1.7,
-                  color:      "rgba(240,232,216,0.5)",
+                  color:      "var(--secondary-text)",
                 }}
               >
                 Takes 30 seconds. Your first prayer arrives tonight.
@@ -406,7 +405,7 @@ export default function HomeClient() {
                   >
                     <span
                       className="font-display"
-                      style={{ fontSize:"1rem", color:"var(--cream)", marginTop:8 }}
+                      style={{ fontSize:"1rem", color:"var(--navy-text)", marginTop:8 }}
                     >
                       $
                     </span>
@@ -419,7 +418,7 @@ export default function HomeClient() {
                     <span
                       style={{
                         fontSize:    "0.82rem",
-                        color:       "var(--muted)",
+                        color:       "var(--secondary-text)",
                         fontWeight:  300,
                         alignSelf:   "flex-end",
                         marginBottom: 10,
@@ -432,7 +431,7 @@ export default function HomeClient() {
                     style={{
                       fontSize:      "0.75rem",
                       fontWeight:    300,
-                      color:         "rgba(240,232,216,0.3)",
+                      color:         "var(--secondary-text)",
                       letterSpacing: "0.04em",
                     }}
                   >
@@ -456,7 +455,7 @@ export default function HomeClient() {
                     marginTop:      14,
                     fontSize:       "0.7rem",
                     fontWeight:     300,
-                    color:          "rgba(240,232,216,0.25)",
+                    color:          "rgba(16,42,67,0.55)",
                     display:        "flex",
                     alignItems:     "center",
                     justifyContent: "center",
@@ -515,8 +514,8 @@ export default function HomeClient() {
           width:           48px;
           height:          48px;
           border-radius:   50%;
-          border:          1px solid rgba(201,169,110,0.3);
-          background:      rgba(201,169,110,0.06);
+          border:          1px solid rgba(16,42,67,0.15);
+          background:      rgba(16,42,67,0.04);
           display:         flex;
           align-items:     center;
           justify-content: center;
@@ -526,13 +525,13 @@ export default function HomeClient() {
         .mini-step-label {
           font-size:   0.88rem;
           font-weight: 300;
-          color:       rgba(240,232,216,0.5);
+          color:       rgba(16,42,67,0.7);
           line-height: 1.4;
         }
         .mini-step-line {
           width:       40px;
           height:      1px;
-          background:  rgba(201,169,110,0.18);
+          background:  rgba(198,161,91,0.25);
           margin-top:  24px;
           flex-shrink: 0;
         }
@@ -564,13 +563,13 @@ export default function HomeClient() {
           font-weight:    400;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color:          rgba(201,169,110,0.6);
+          color:          rgba(16,42,67,0.65);
         }
         .form-input {
-          background:         rgba(9, 21, 37, 0.8);
-          border:             1px solid rgba(201,169,110,0.18);
+          background:         rgba(255,255,255,0.82);
+          border:             1px solid rgba(16,42,67,0.12);
           border-radius:      4px;
-          color:              var(--cream);
+          color:              var(--navy-text);
           font-family:        var(--font-jost), sans-serif;
           font-size:          1rem;
           font-weight:        300;
@@ -582,15 +581,15 @@ export default function HomeClient() {
           appearance:         none;
         }
         .form-input:focus {
-          border-color: rgba(201,169,110,0.4);
-          background:   rgba(14,28,50,0.9);
+          border-color: rgba(198,161,91,0.55);
+          background:   #ffffff;
         }
-        .form-input::placeholder { color: rgba(240,232,216,0.2); }
-        .form-input option        { background: #0d1b2a; color: var(--cream); }
+        .form-input::placeholder { color: rgba(16,42,67,0.38); }
+        .form-input option        { background: #ffffff; color: var(--navy-text); }
 
         /* Custom select arrow */
         select.form-input {
-          background-image:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c9a96e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+          background-image:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23102A43' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
           background-repeat:   no-repeat;
           background-position: right 14px center;
           padding-right:       40px;
