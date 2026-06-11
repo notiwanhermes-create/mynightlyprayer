@@ -1,0 +1,72 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Moon gradient: warm gold -->
+    <linearGradient id="moonGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#D4A840"/>
+      <stop offset="100%" stop-color="#A87830"/>
+    </linearGradient>
+    <!-- Star gradient -->
+    <linearGradient id="starGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#D4A840"/>
+      <stop offset="100%" stop-color="#C6A15B"/>
+    </linearGradient>
+    <!-- Soft glow beneath star -->
+    <radialGradient id="glowGrad" cx="50%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#C6A15B" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#C6A15B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100" height="100" fill="#F7F1E8"/>
+
+  <!-- Crescent moon: large circle masked by offset circle -->
+  <!-- The two circles create a thin crescent shape -->
+  <circle cx="40" cy="26" r="19" fill="url(#moonGrad)"/>
+  <circle cx="48" cy="23" r="16" fill="#F7F1E8"/>
+
+  <!-- Subtle glow emanating from star downward into hands -->
+  <ellipse cx="50" cy="66" rx="14" ry="7" fill="url(#glowGrad)"/>
+
+  <!-- Left hand (navy, wing shape opening upward) -->
+  <path d="M10 86 C12 68 22 58 37 64 C28 70 22 80 18 92 Z" fill="#102A43"/>
+
+  <!-- Right hand (mirror) -->
+  <path d="M90 86 C88 68 78 58 63 64 C72 70 78 80 82 92 Z" fill="#102A43"/>
+
+  <!-- Star rays (subtle golden lines falling below the star into hands) -->
+  <line x1="44" y1="64" x2="40" y2="76" stroke="#C6A15B" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="50" y1="65" x2="50" y2="78" stroke="#C6A15B" stroke-width="1.6" stroke-linecap="round" opacity="0.5"/>
+  <line x1="56" y1="64" x2="60" y2="76" stroke="#C6A15B" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- 8-pointed star centered at (50, 46)
+       Outer tips (N/S/E/W) radius 16, diagonal tips radius 10, inner valleys radius 5 -->
+  <polygon
+    fill="url(#starGrad)"
+    points="
+      50,30
+      51.9,41.1
+      59.1,37.1
+      54.5,45.1
+      66,46
+      54.5,46.9
+      59.1,54.9
+      51.9,50.9
+      50,62
+      48.1,50.9
+      40.9,54.9
+      45.5,46.9
+      34,46
+      45.5,45.1
+      40.9,37.1
+      48.1,41.1
+    "
+  />
+
+  <!-- Small sparkle dots around moon / star -->
+  <circle cx="70" cy="22" r="1.8" fill="#C6A15B" opacity="0.72"/>
+  <circle cx="76" cy="33" r="1.2" fill="#C6A15B" opacity="0.50"/>
+  <circle cx="64" cy="15" r="1.2" fill="#C6A15B" opacity="0.50"/>
+  <circle cx="31" cy="50" r="1.8" fill="#C6A15B" opacity="0.40"/>
+  <circle cx="26" cy="38" r="1.0" fill="#C6A15B" opacity="0.38"/>
+</svg>

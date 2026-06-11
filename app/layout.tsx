@@ -21,6 +21,11 @@ export const metadata: Metadata = {
   title: "Nightly Prayer — Sleep with Peace Tonight",
   description:
     "Receive a personal nightly prayer in your inbox at the bedtime you choose. $5.99/month, cancel anytime.",
+  icons: {
+    icon:      [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut:  "/icon.svg",
+    apple:     "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
