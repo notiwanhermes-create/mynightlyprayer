@@ -171,7 +171,7 @@ export default function HomeClient() {
 
               <div className="fade-up d4 hero-cta" style={{ marginBottom: 18 }}>
                 <button onClick={scrollToSignup} className="btn-gold">
-                  Start My Nightly Prayer
+                  Start Nightly Prayer
                 </button>
               </div>
 
