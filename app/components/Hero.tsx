@@ -43,7 +43,7 @@ export default function Hero() {
 
             <div className="fade-up d4 hero-cta" style={{ marginBottom: 18 }}>
               <Link href="/checkout" className="btn-gold" style={{ display: "inline-flex" }}>
-                Start Nightly Prayer
+                Start My Nightly Prayer
               </Link>
             </div>
 

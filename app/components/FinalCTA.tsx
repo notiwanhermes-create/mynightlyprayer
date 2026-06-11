@@ -66,7 +66,7 @@ export default function FinalCTA() {
             }}
           >
             <Link href="/checkout" className="btn-gold">
-              Start Nightly Prayer
+              Start My Nightly Prayer
             </Link>
             <span
               style={{

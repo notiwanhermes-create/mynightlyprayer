@@ -169,12 +169,6 @@ export default function HomeClient() {
                 for you, delivered at the bedtime you choose.
               </p>
 
-              <div className="fade-up d4 hero-cta" style={{ marginBottom: 18 }}>
-                <button onClick={scrollToSignup} className="btn-gold">
-                  Start Nightly Prayer
-                </button>
-              </div>
-
               <p
                 className="fade-up d5 hero-price"
                 style={{ fontSize:"0.78rem", fontWeight:300, color:"var(--muted)", letterSpacing:"0.04em" }}

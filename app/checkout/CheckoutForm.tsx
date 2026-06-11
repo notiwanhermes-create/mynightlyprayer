@@ -331,7 +331,7 @@ export default function CheckoutForm() {
                   boxShadow: canSubmit && !loading ? "0 4px 24px rgba(201,169,110,0.35)" : "none",
                 }}
               >
-                {loading ? "Opening checkout…" : canSubmit ? "Start Nightly Prayer" : "Enter payment to continue"}
+                {loading ? "Opening checkout…" : canSubmit ? "Start My Nightly Prayer" : "Enter payment to continue"}
               </button>
             </div>
 
