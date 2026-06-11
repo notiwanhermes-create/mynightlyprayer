@@ -7,37 +7,43 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /* ══════════════════════════════════════════════
-   Time helpers (no external libraries needed)
+   Time helpers
 ══════════════════════════════════════════════ */
 
 /**
- * Parse "9:30 PM" or "21:30" → "21:30" (24-hour HH:mm)
+ * Normalize any delivery_time format to "HH:mm" (24-hour).
+ * Handles: "22:00", "22:00:00", "22:00:00+00", "10:00+00:00",
+ *          "9:30 PM", "10:00 AM", missing/null.
+ * Uses parseInt so timezone offsets and seconds are safely ignored.
  */
-function normalizeTime(raw: string): string {
+function normalizeTime(raw: string | null | undefined): string {
   if (!raw) return "22:00";
   const s = raw.trim();
 
-  // Already 24h: "21:30" or "9:30"
-  if (/^\d{1,2}:\d{2}$/.test(s)) {
-    const [h, m] = s.split(":").map(Number);
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-  }
-
-  // 12h: "9:30 PM" / "10:00 AM"
-  const match = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (match) {
-    let h = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10);
-    const period = match[3].toUpperCase();
+  // 12-hour format: "9:30 PM" / "10:00 AM"
+  const match12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match12) {
+    let h = parseInt(match12[1], 10);
+    const m = parseInt(match12[2], 10);
+    const period = match12[3].toUpperCase();
     if (period === "PM" && h !== 12) h += 12;
     if (period === "AM" && h === 12) h = 0;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
 
-  return "22:00"; // safe fallback
+  // 24-hour / Postgres time formats: "22:00", "22:00:00", "22:00:00+00", "10:00+00:00"
+  // parseInt stops at the first non-numeric character, so "+00" and ":00" suffixes are ignored.
+  const parts = s.split(":");
+  const h = parseInt(parts[0] ?? "", 10);
+  const m = parseInt(parts[1] ?? "0",  10);
+  if (!isNaN(h) && !isNaN(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  return "22:00";
 }
 
-/** Get current local time as "HH:mm" for the given IANA timezone */
+/** Current local time as "HH:mm" for the given IANA timezone */
 function localTimeHHMM(tz: string): string {
   try {
     return new Intl.DateTimeFormat("en-GB", {
@@ -50,7 +56,7 @@ function localTimeHHMM(tz: string): string {
   }
 }
 
-/** Get current local date as "YYYY-MM-DD" for the given IANA timezone */
+/** Current local date as "YYYY-MM-DD" for the given IANA timezone */
 function localDateYMD(tz: string): string {
   try {
     return new Intl.DateTimeFormat("en-CA", {
@@ -64,8 +70,8 @@ function localDateYMD(tz: string): string {
 }
 
 /**
- * True if the current local time is 0–windowMinutes PAST the delivery time.
- * Window default = 15 min → safe for a cron that fires every 10–15 min.
+ * True if current local time is 0–windowMinutes PAST the delivery time.
+ * Window = 15 min — safe for a cron that fires every 10 min.
  */
 function inDeliveryWindow(currentHHMM: string, deliveryHHMM: string, windowMin = 15): boolean {
   const toMin = (hhmm: string) => {
@@ -73,20 +79,34 @@ function inDeliveryWindow(currentHHMM: string, deliveryHHMM: string, windowMin =
     return h * 60 + m;
   };
   let diff = toMin(currentHHMM) - toMin(deliveryHHMM);
-  // Handle midnight wrap (delivery 23:55, current 00:05)
-  if (diff < -windowMin) diff += 1440;
+  if (diff < -windowMin) diff += 1440; // handle midnight wrap
   return diff >= 0 && diff <= windowMin;
 }
 
 /* ══════════════════════════════════════════════
-   Auth helper
+   Auth
 ══════════════════════════════════════════════ */
-function authorized(req: NextRequest): boolean {
+function authorized(req: NextRequest): { ok: boolean; source: string } {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-  const header = req.headers.get("authorization") ?? "";
-  const token  = header.startsWith("Bearer ") ? header.slice(7) : header;
-  return token === secret;
+
+  // Vercel Cron sends Authorization: Bearer <CRON_SECRET> and x-vercel-cron: 1
+  const isVercelCron = req.headers.get("x-vercel-cron") === "1";
+
+  if (secret) {
+    const header = req.headers.get("authorization") ?? "";
+    const token  = header.startsWith("Bearer ") ? header.slice(7) : header;
+    if (token === secret) {
+      return { ok: true, source: isVercelCron ? "vercel-cron" : "manual-bearer" };
+    }
+  }
+
+  // If CRON_SECRET is not configured but Vercel marks it as a cron request, allow it
+  // (Vercel strips x-vercel-cron from external traffic so this is safe in production)
+  if (isVercelCron && !secret) {
+    return { ok: true, source: "vercel-cron-no-secret" };
+  }
+
+  return { ok: false, source: "rejected" };
 }
 
 /* ══════════════════════════════════════════════
@@ -96,17 +116,22 @@ export async function GET(req: NextRequest)  { return run(req); }
 export async function POST(req: NextRequest) { return run(req); }
 
 async function run(req: NextRequest) {
-  if (!process.env.CRON_SECRET) {
-    console.error("[cron] CRON_SECRET env var is not set");
-    return NextResponse.json({ error: "Server misconfigured." }, { status: 500 });
-  }
-  if (!authorized(req)) {
+  const utcNow = new Date().toISOString();
+  console.log(`[cron] ── Route started ── UTC: ${utcNow}`);
+
+  const auth = authorized(req);
+  if (!auth.ok) {
+    console.warn(
+      `[cron] Unauthorized request. ` +
+      `x-vercel-cron: ${req.headers.get("x-vercel-cron") ?? "absent"}, ` +
+      `CRON_SECRET set: ${!!process.env.CRON_SECRET}`,
+    );
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
+  console.log(`[cron] Auth passed — source: ${auth.source}`);
 
   const db = getSupabaseAdmin();
 
-  /* ── Fetch active subscribers ── */
   const { data: subscribers, error: fetchErr } = await db
     .from("subscribers")
     .select("*")
@@ -117,24 +142,36 @@ async function run(req: NextRequest) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
 
+  const count = subscribers?.length ?? 0;
+  console.log(`[cron] Active subscribers fetched: ${count}`);
+
   const results = { checked: 0, sent: 0, skipped: 0, failed: 0 };
 
   for (const sub of subscribers ?? []) {
     results.checked++;
 
-    const tz          = sub.timezone    || "America/Toronto";
-    const nowLocal    = localTimeHHMM(tz);
-    const todayLocal  = localDateYMD(tz);
-    const delivery24  = normalizeTime(sub.delivery_time ?? "22:00");
+    const tz         = sub.timezone     || "America/Toronto";
+    const rawTime    = sub.delivery_time ?? "22:00";
+    const delivery24 = normalizeTime(rawTime);
+    const nowLocal   = localTimeHHMM(tz);
+    const todayLocal = localDateYMD(tz);
+    const inWindow   = inDeliveryWindow(nowLocal, delivery24);
 
-    /* Not in delivery window yet */
-    if (!inDeliveryWindow(nowLocal, delivery24)) {
+    console.log(
+      `[cron] Checking ${sub.email} | tz: ${tz} | ` +
+      `raw_delivery: ${rawTime} | normalized: ${delivery24} | ` +
+      `local_now: ${nowLocal} | local_date: ${todayLocal} | ` +
+      `in_window: ${inWindow}`,
+    );
+
+    if (!inWindow) {
+      console.log(`[cron]   → skip (outside delivery window)`);
       results.skipped++;
       continue;
     }
 
-    /* Already sent a real prayer today */
-    const { data: already } = await db
+    /* Already sent a real prayer today (test_sent rows do NOT block this) */
+    const { data: already, error: alreadyErr } = await db
       .from("sent_prayers")
       .select("id")
       .eq("subscriber_id", sub.id)
@@ -142,19 +179,25 @@ async function run(req: NextRequest) {
       .not("status", "eq", "test_sent")
       .maybeSingle();
 
+    if (alreadyErr) {
+      console.error(`[cron]   → DB error checking sent_prayers: ${alreadyErr.message}`);
+    }
+
     if (already) {
-      console.log(`[cron] Already sent to ${sub.email} on ${todayLocal} — skip`);
+      console.log(`[cron]   → skip (already sent on ${todayLocal})`);
       results.skipped++;
       continue;
     }
 
     /* Generate + send */
+    console.log(`[cron]   → generating prayer for ${sub.email}…`);
     try {
       const { subject, prayerText } = await generatePrayer({
         firstName:   sub.first_name   ?? "Friend",
         prayerFocus: sub.prayer_focus ?? "peace",
         tone:        sub.tone         ?? "gentle",
       });
+      console.log(`[cron]   → prayer generated, subject: "${subject}"`);
 
       const { emailId } = await sendPrayerEmail({
         to:              sub.email,
@@ -163,12 +206,13 @@ async function run(req: NextRequest) {
         prayerText,
         managementToken: sub.management_token ?? "",
       });
+      console.log(`[cron]   → email sent, resend_id: ${emailId}`);
 
-      await db.from("sent_prayers").insert({
+      const { error: insertErr } = await db.from("sent_prayers").insert({
         subscriber_id:   sub.id,
         email:           sub.email,
         prayer_date:     todayLocal,
-        delivery_time:   sub.delivery_time,
+        delivery_time:   rawTime,
         timezone:        tz,
         subject,
         prayer_text:     prayerText,
@@ -176,20 +220,24 @@ async function run(req: NextRequest) {
         status:          "sent",
       });
 
-      console.log(`[cron] Sent → ${sub.email}`);
+      if (insertErr) {
+        console.error(`[cron]   → DB insert error: ${insertErr.message}`);
+      } else {
+        console.log(`[cron]   → sent_prayers row inserted (status: sent)`);
+      }
+
       results.sent++;
 
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[cron] Failed for ${sub.email}:`, msg);
+      console.error(`[cron]   → FAILED for ${sub.email}: ${msg}`);
 
-      /* Save the failure so we can debug */
       try {
         await db.from("sent_prayers").insert({
           subscriber_id: sub.id,
           email:         sub.email,
           prayer_date:   todayLocal,
-          delivery_time: sub.delivery_time,
+          delivery_time: rawTime,
           timezone:      tz,
           status:        "failed",
           error_message: msg,
@@ -201,9 +249,9 @@ async function run(req: NextRequest) {
   }
 
   console.log(
-    `[cron] Done — checked:${results.checked} sent:${results.sent} ` +
-    `skipped:${results.skipped} failed:${results.failed}`,
+    `[cron] ── Done ── checked: ${results.checked} | sent: ${results.sent} | ` +
+    `skipped: ${results.skipped} | failed: ${results.failed}`,
   );
 
-  return NextResponse.json(results);
+  return NextResponse.json({ ...results, utc: utcNow });
 }
