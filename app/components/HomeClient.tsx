@@ -187,26 +187,6 @@ export default function HomeClient() {
           </div>
         </div>
 
-        {/* Scroll hint */}
-        <div
-          className="scroll-hint fade-up d7"
-          style={{
-            position:  "absolute",
-            bottom:    32,
-            left:      "50%",
-            transform: "translateX(-50%)",
-            display:   "flex",
-            flexDirection: "column",
-            alignItems:    "center",
-            gap:       6,
-            opacity:   0.45,
-          }}
-        >
-          <span style={{ fontSize:"0.58rem", letterSpacing:"0.16em", textTransform:"uppercase", color:"var(--muted)" }}>
-            Scroll
-          </span>
-          <div style={{ width:1, height:30, background:"linear-gradient(to bottom, var(--muted), transparent)" }} />
-        </div>
       </section>
 
       {/* ═══════════════════════════════════════ SIGNUP + CHECKOUT */}
