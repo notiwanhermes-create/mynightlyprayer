@@ -77,6 +77,19 @@ export async function POST(req: NextRequest) {
 
         const managementToken = existing?.management_token ?? randomBytes(32).toString("hex");
 
+        /* Fetch the real subscription so the saved status matches Stripe —
+           a trial checkout completes before any payment, so it's "trialing" */
+        let subscriptionStatus: Stripe.Subscription.Status = "active";
+        try {
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          subscriptionStatus = subscription.status;
+        } catch (subErr) {
+          console.error(
+            "[webhook] Could not retrieve subscription, defaulting status to active:",
+            subErr instanceof Error ? subErr.message : subErr,
+          );
+        }
+
         const fields = {
           first_name:                 metadata.firstName      ?? "",
           email:                      session.customer_email  ?? metadata.email ?? "",
@@ -87,9 +100,9 @@ export async function POST(req: NextRequest) {
           stripe_customer_id:         customerId,
           stripe_subscription_id:     subscriptionId,
           stripe_checkout_session_id: session.id,
-          subscription_status:        "active",
+          subscription_status:        subscriptionStatus,
           last_payment_status:        session.payment_status  ?? "",
-          is_active:                  true,
+          is_active:                  subscriptionStatus === "active" || subscriptionStatus === "trialing",
           management_token:           managementToken,
           updated_at:                 new Date().toISOString(),
         };
