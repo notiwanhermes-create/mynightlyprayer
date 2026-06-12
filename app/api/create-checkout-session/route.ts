@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       line_items:     [{ price: priceId, quantity: 1 }],
       metadata:       sharedMetadata,          // readable in checkout.session.completed
       subscription_data: {
+        trial_period_days: 7,                  // first 7 nights free — card charged after trial
         metadata: sharedMetadata,              // readable on the subscription object
       },
       success_url: `${appUrl}/success?session_id={CHECKOUT_SESSION_ID}`,

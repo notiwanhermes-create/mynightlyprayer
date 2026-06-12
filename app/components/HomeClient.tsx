@@ -169,11 +169,22 @@ export default function HomeClient() {
                 for you, delivered at the bedtime you choose.
               </p>
 
+              <div className="fade-up d4 hero-cta" style={{ marginBottom: 20 }}>
+                <button
+                  type="button"
+                  onClick={scrollToSignup}
+                  className="btn-gold"
+                  style={{ display: "inline-flex", border: "none", cursor: "pointer" }}
+                >
+                  Start My 7 Free Nights
+                </button>
+              </div>
+
               <p
                 className="fade-up d5 hero-price"
                 style={{ fontSize:"0.78rem", fontWeight:300, color:"var(--muted)", letterSpacing:"0.04em" }}
               >
-                $5.99/month · Delivered at your chosen bedtime · Cancel anytime
+                First 7 nights free · Then $5.99/month · Cancel anytime
               </p>
             </div>
 
@@ -233,7 +244,7 @@ export default function HomeClient() {
                   color:      "var(--secondary-text)",
                 }}
               >
-                Takes 30 seconds. Your first prayer arrives tonight.
+                Takes 30 seconds. Your first prayer arrives tonight — free.
               </p>
             </div>
 
@@ -368,48 +379,27 @@ export default function HomeClient() {
 
                 {/* Price */}
                 <div style={{ marginBottom:28 }}>
-                  <div
+                  <p
+                    className="font-display text-gold"
                     style={{
-                      display:        "flex",
-                      alignItems:     "flex-start",
-                      justifyContent: "center",
-                      gap:            4,
-                      marginBottom:   6,
+                      fontSize:     "clamp(1.7rem, 4vw, 2.3rem)",
+                      fontWeight:   400,
+                      fontStyle:    "italic",
+                      lineHeight:   1.2,
+                      marginBottom: 10,
                     }}
                   >
-                    <span
-                      className="font-display"
-                      style={{ fontSize:"1rem", color:"var(--navy-text)", marginTop:8 }}
-                    >
-                      $
-                    </span>
-                    <span
-                      className="font-display text-gold"
-                      style={{ fontSize:"4rem", fontWeight:400, lineHeight:1 }}
-                    >
-                      5.99
-                    </span>
-                    <span
-                      style={{
-                        fontSize:    "0.82rem",
-                        color:       "var(--secondary-text)",
-                        fontWeight:  300,
-                        alignSelf:   "flex-end",
-                        marginBottom: 10,
-                      }}
-                    >
-                      /month
-                    </span>
-                  </div>
+                    Your first 7 nights are free
+                  </p>
                   <p
                     style={{
-                      fontSize:      "0.75rem",
+                      fontSize:      "0.8rem",
                       fontWeight:    300,
                       color:         "var(--secondary-text)",
                       letterSpacing: "0.04em",
                     }}
                   >
-                    Billed monthly · Cancel anytime
+                    Then $5.99/month · No charge today · Cancel anytime
                   </p>
                 </div>
 
@@ -420,7 +410,7 @@ export default function HomeClient() {
                   disabled={loading}
                   style={{ opacity: loading ? 0.7 : 1, cursor: loading ? "default" : "pointer" }}
                 >
-                  {loading ? "Opening checkout…" : "Continue to Secure Checkout →"}
+                  {loading ? "Opening checkout…" : "Start My 7 Free Nights →"}
                 </button>
 
                 {/* Security note */}
@@ -461,7 +451,7 @@ export default function HomeClient() {
           .hero-eyebrow { justify-content: center; }
           .hero-cta   { display: flex; justify-content: center; }
           .hero-price { text-align: center; }
-          .hero-card  { justify-content: center !important; order: -1; }
+          .hero-card  { justify-content: center !important; }
           .scroll-hint { display: none !important; }
         }
         @media (max-width: 390px) {

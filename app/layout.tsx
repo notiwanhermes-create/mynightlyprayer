@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Jost } from "next/font/google";
+import Footer from "./components/Footer";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -20,7 +21,7 @@ const jost = Jost({
 export const metadata: Metadata = {
   title: "Nightly Prayer — Sleep with Peace Tonight",
   description:
-    "Receive a personal nightly prayer in your inbox at the bedtime you choose. $5.99/month, cancel anytime.",
+    "Receive a personal nightly prayer in your inbox at the bedtime you choose. First 7 nights free, then $5.99/month. Cancel anytime.",
   icons: {
     icon:      [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut:  "/icon.svg",
@@ -33,7 +34,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${playfair.variable} ${jost.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
