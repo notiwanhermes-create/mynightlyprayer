@@ -8,6 +8,7 @@
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import Navbar from "../components/Navbar";
 import ManageClient from "./ManageClient";
+import RequestLinkClient from "./RequestLinkClient";
 
 interface ManagePageProps {
   searchParams: Promise<{ token?: string; error?: string }>;
@@ -20,20 +21,14 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
   const token  = params.token ?? "";
   const portalError = params.error === "portal";
 
-  /* ─── Invalid / missing token ─── */
+  /* ─── No token — let the subscriber request their link by email ─── */
   if (!token) {
     return (
       <>
         <div className="stars" aria-hidden="true" />
         <Navbar />
         <main style={mainStyle}>
-          <div style={cardStyle}>
-            <p style={eyebrowStyle}>Manage Subscription</p>
-            <h1 style={headingStyle}>Link not valid.</h1>
-            <p style={bodyStyle}>
-              This link is missing a token. Please use the link from your most recent prayer email.
-            </p>
-          </div>
+          <RequestLinkClient />
         </main>
       </>
     );
@@ -49,21 +44,14 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
     .eq("management_token", token)
     .maybeSingle();
 
-  /* ─── Token not found ─── */
+  /* ─── Token not found — offer to email a fresh link ─── */
   if (!subscriber) {
     return (
       <>
         <div className="stars" aria-hidden="true" />
         <Navbar />
         <main style={mainStyle}>
-          <div style={cardStyle}>
-            <p style={eyebrowStyle}>Manage Subscription</p>
-            <h1 style={headingStyle}>Link expired or invalid.</h1>
-            <p style={bodyStyle}>
-              We couldn't find a subscription linked to this token. Try the link in your most recent
-              prayer email, or contact support.
-            </p>
-          </div>
+          <RequestLinkClient expired />
         </main>
       </>
     );
@@ -102,32 +90,3 @@ const mainStyle: React.CSSProperties = {
   padding:         "100px 24px 60px",
 };
 
-const cardStyle: React.CSSProperties = {
-  textAlign:  "center",
-  maxWidth:   520,
-};
-
-const eyebrowStyle: React.CSSProperties = {
-  fontSize:       "0.68rem",
-  fontWeight:     400,
-  letterSpacing:  "0.18em",
-  textTransform:  "uppercase",
-  color:          "var(--gold)",
-  marginBottom:   20,
-};
-
-const headingStyle: React.CSSProperties = {
-  fontSize:    "clamp(1.6rem, 4vw, 2.4rem)",
-  fontWeight:  400,
-  fontStyle:   "italic",
-  color:       "var(--navy-text)",
-  lineHeight:  1.2,
-  marginBottom: 20,
-};
-
-const bodyStyle: React.CSSProperties = {
-  fontSize:    "1rem",
-  fontWeight:  300,
-  lineHeight:  1.85,
-  color:       "var(--secondary-text)",
-};
