@@ -67,58 +67,55 @@ async function run(req: NextRequest) {
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
-  if (!rows?.length) {
-    return NextResponse.json({ error: "Subscriber not found." }, { status: 404 });
-  }
 
-  const sub = rows[0];
-  const tz  = sub.timezone ?? "America/Toronto";
-  const today = localDateYMD(tz);
+  /* Use subscriber data if found, otherwise use defaults for non-subscribers */
+  const sub   = rows?.[0] ?? null;
+  const toEmail     = sub?.email         ?? email ?? "";
+  const firstName   = sub?.first_name    ?? "Friend";
+  const prayerFocus = sub?.prayer_focus  ?? "peace";
+  const tone        = sub?.tone          ?? "gentle";
+  const tz          = sub?.timezone      ?? "America/Toronto";
+  const today       = localDateYMD(tz);
+
+  if (!toEmail) {
+    return NextResponse.json({ error: "No email address to send to." }, { status: 400 });
+  }
 
   /* ── Generate + send ── */
   try {
-    const { subject, prayerText } = await generatePrayer({
-      firstName:   sub.first_name   ?? "Friend",
-      prayerFocus: sub.prayer_focus ?? "peace",
-      tone:        sub.tone         ?? "gentle",
-    });
-
+    const { subject, prayerText } = await generatePrayer({ firstName, prayerFocus, tone });
     const testSubject = `[TEST] ${subject}`;
 
     const { emailId } = await sendPrayerEmail({
-      to:              sub.email,
-      firstName:       sub.first_name ?? "Friend",
+      to:              toEmail,
+      firstName,
       subject:         testSubject,
       prayerText,
-      managementToken: sub.management_token ?? "",
+      managementToken: sub?.management_token ?? "",
     });
 
-    /* Save as test_sent — does not block real sends today */
-    await db.from("sent_prayers").insert({
-      subscriber_id:   sub.id,
-      email:           sub.email,
-      prayer_date:     today,
-      delivery_time:   sub.delivery_time,
-      timezone:        tz,
-      subject:         testSubject,
-      prayer_text:     prayerText,
-      resend_email_id: emailId,
-      status:          "test_sent",
-    });
+    /* Only insert a sent_prayers row if this is a real subscriber */
+    if (sub) {
+      await db.from("sent_prayers").insert({
+        subscriber_id:   sub.id,
+        email:           sub.email,
+        prayer_date:     today,
+        delivery_time:   sub.delivery_time,
+        timezone:        tz,
+        subject:         testSubject,
+        prayer_text:     prayerText,
+        resend_email_id: emailId,
+        status:          "test_sent",
+      });
+    }
 
-    console.log(`[test] Prayer sent → ${sub.email}`);
+    console.log(`[test] Prayer sent → ${toEmail}${sub ? "" : " (non-subscriber)"}`);
 
-    return NextResponse.json({
-      success:    true,
-      email:      sub.email,
-      subject:    testSubject,
-      prayerText,
-      emailId,
-    });
+    return NextResponse.json({ success: true, email: toEmail, subject: testSubject, prayerText, emailId });
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[test] Failed for ${sub.email}:`, msg);
+    console.error(`[test] Failed for ${toEmail}:`, msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
