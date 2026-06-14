@@ -69,8 +69,9 @@ export default function HomeClient() {
     prayerFocus:  "peace",
     tone:         "gentle",
   });
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState("");
+  const [showCustomize, setShowCustomize] = useState(false);
 
   const scrollToSignup = () =>
     signupRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -316,62 +317,105 @@ export default function HomeClient() {
                   />
                 </div>
 
-                <div className="form-field">
-                  <label htmlFor="np-deliveryTime" className="form-label">Delivery time</label>
-                  <select
-                    id="np-deliveryTime"
-                    className="form-input"
-                    value={form.deliveryTime}
-                    onChange={set("deliveryTime")}
-                  >
-                    {DELIVERY_TIMES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
+              </div>
 
-                <div className="form-field">
-                  <label htmlFor="np-timezone" className="form-label">Timezone</label>
-                  <select
-                    id="np-timezone"
-                    className="form-input"
-                    value={form.timezone}
-                    onChange={set("timezone")}
-                  >
-                    {TIMEZONES.map((tz) => (
-                      <option key={tz.value} value={tz.value}>{tz.label}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* ── Customize toggle ── */}
+              <div style={{ textAlign: "center", marginTop: 24 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomize(v => !v)}
+                  style={{
+                    background:    "none",
+                    border:        "none",
+                    cursor:        "pointer",
+                    fontSize:      "0.78rem",
+                    fontWeight:    300,
+                    color:         "var(--secondary-text)",
+                    letterSpacing: "0.03em",
+                    display:       "inline-flex",
+                    alignItems:    "center",
+                    gap:           6,
+                    padding:       "4px 0",
+                    transition:    "color 0.2s",
+                  }}
+                >
+                  <span style={{
+                    display:      "inline-block",
+                    transition:   "transform 0.25s",
+                    transform:    showCustomize ? "rotate(90deg)" : "rotate(0deg)",
+                    fontSize:     "0.7rem",
+                  }}>▶</span>
+                  {showCustomize ? "Hide options" : "Customise delivery time & prayer style (optional)"}
+                </button>
+              </div>
 
-                <div className="form-field">
-                  <label htmlFor="np-prayerFocus" className="form-label">Prayer focus</label>
-                  <select
-                    id="np-prayerFocus"
-                    className="form-input"
-                    value={form.prayerFocus}
-                    onChange={set("prayerFocus")}
-                  >
-                    {PRAYER_FOCUS.map((f) => (
-                      <option key={f.value} value={f.value}>{f.label}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* ── Collapsible preference fields ── */}
+              <div style={{
+                overflow:   "hidden",
+                maxHeight:  showCustomize ? 600 : 0,
+                opacity:    showCustomize ? 1 : 0,
+                transition: "max-height 0.35s ease, opacity 0.25s ease",
+                marginTop:  showCustomize ? 20 : 0,
+              }}>
+                <div className="form-grid">
 
-                <div className="form-field">
-                  <label htmlFor="np-tone" className="form-label">Prayer tone</label>
-                  <select
-                    id="np-tone"
-                    className="form-input"
-                    value={form.tone}
-                    onChange={set("tone")}
-                  >
-                    {TONES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
+                  <div className="form-field">
+                    <label htmlFor="np-deliveryTime" className="form-label">Delivery time</label>
+                    <select
+                      id="np-deliveryTime"
+                      className="form-input"
+                      value={form.deliveryTime}
+                      onChange={set("deliveryTime")}
+                    >
+                      {DELIVERY_TIMES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
+                  <div className="form-field">
+                    <label htmlFor="np-timezone" className="form-label">Timezone</label>
+                    <select
+                      id="np-timezone"
+                      className="form-input"
+                      value={form.timezone}
+                      onChange={set("timezone")}
+                    >
+                      {TIMEZONES.map((tz) => (
+                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label htmlFor="np-prayerFocus" className="form-label">Prayer focus</label>
+                    <select
+                      id="np-prayerFocus"
+                      className="form-input"
+                      value={form.prayerFocus}
+                      onChange={set("prayerFocus")}
+                    >
+                      {PRAYER_FOCUS.map((f) => (
+                        <option key={f.value} value={f.value}>{f.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label htmlFor="np-tone" className="form-label">Prayer tone</label>
+                    <select
+                      id="np-tone"
+                      className="form-input"
+                      value={form.tone}
+                      onChange={set("tone")}
+                    >
+                      {TONES.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                </div>
               </div>
 
               {/* ── Checkout area ── */}
