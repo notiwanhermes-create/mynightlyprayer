@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/send-nightly-prayers",
-      "schedule": "*/10 * * * *"
-    }
-  ]
-}
+{}
