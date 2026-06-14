@@ -14,13 +14,11 @@ export const dynamic = "force-dynamic";
  * Normalize any delivery_time format to "HH:mm" (24-hour).
  * Handles: "22:00", "22:00:00", "22:00:00+00", "10:00+00:00",
  *          "9:30 PM", "10:00 AM", missing/null.
- * Uses parseInt so timezone offsets and seconds are safely ignored.
  */
 function normalizeTime(raw: string | null | undefined): string {
   if (!raw) return "22:00";
   const s = raw.trim();
 
-  // 12-hour format: "9:30 PM" / "10:00 AM"
   const match12 = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (match12) {
     let h = parseInt(match12[1], 10);
@@ -31,8 +29,6 @@ function normalizeTime(raw: string | null | undefined): string {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
 
-  // 24-hour / Postgres time formats: "22:00", "22:00:00", "22:00:00+00", "10:00+00:00"
-  // parseInt stops at the first non-numeric character, so "+00" and ":00" suffixes are ignored.
   const parts = s.split(":");
   const h = parseInt(parts[0] ?? "", 10);
   const m = parseInt(parts[1] ?? "0",  10);
@@ -69,18 +65,29 @@ function localDateYMD(tz: string): string {
   }
 }
 
+const toMin = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+};
+
 /**
- * True if current local time is 0–windowMinutes PAST the delivery time.
- * Window = 15 min — safe for a cron that fires every 10 min.
+ * Minutes elapsed since delivery_time (positive = past, negative = future).
+ * Wraps around midnight so e.g. 23:50 delivery / 00:05 current = +15.
  */
-function inDeliveryWindow(currentHHMM: string, deliveryHHMM: string, windowMin = 15): boolean {
-  const toMin = (hhmm: string) => {
-    const [h, m] = hhmm.split(":").map(Number);
-    return h * 60 + m;
-  };
+function minutesSinceDelivery(currentHHMM: string, deliveryHHMM: string): number {
   let diff = toMin(currentHHMM) - toMin(deliveryHHMM);
-  if (diff < -windowMin) diff += 1440; // handle midnight wrap
-  return diff >= 0 && diff <= windowMin;
+  // If more than 12 hours in the past, it's actually a future delivery (midnight wrap)
+  if (diff < -720) diff += 1440;
+  return diff;
+}
+
+/**
+ * True if current local time is 0–10 minutes PAST the delivery time.
+ * Window = 10 min (cron fires every 10 min, so at most one fire per window).
+ */
+function inDeliveryWindow(currentHHMM: string, deliveryHHMM: string): boolean {
+  const diff = minutesSinceDelivery(currentHHMM, deliveryHHMM);
+  return diff >= 0 && diff <= 10;
 }
 
 /* ══════════════════════════════════════════════
@@ -88,8 +95,6 @@ function inDeliveryWindow(currentHHMM: string, deliveryHHMM: string, windowMin =
 ══════════════════════════════════════════════ */
 function authorized(req: NextRequest): { ok: boolean; source: string } {
   const secret = process.env.CRON_SECRET;
-
-  // Vercel Cron sends Authorization: Bearer <CRON_SECRET> and x-vercel-cron: 1
   const isVercelCron = req.headers.get("x-vercel-cron") === "1";
 
   if (secret) {
@@ -100,13 +105,29 @@ function authorized(req: NextRequest): { ok: boolean; source: string } {
     }
   }
 
-  // If CRON_SECRET is not configured but Vercel marks it as a cron request, allow it
-  // (Vercel strips x-vercel-cron from external traffic so this is safe in production)
   if (isVercelCron && !secret) {
     return { ok: true, source: "vercel-cron-no-secret" };
   }
 
   return { ok: false, source: "rejected" };
+}
+
+/* ══════════════════════════════════════════════
+   Debug entry shape
+══════════════════════════════════════════════ */
+interface DebugEntry {
+  email: string;
+  is_active: boolean;
+  subscription_status: string | null;
+  delivery_time_raw: string;
+  delivery_time_normalized: string;
+  timezone: string;
+  current_local_time: string;
+  minutes_since_delivery: number;
+  in_window: boolean;
+  already_sent_today: boolean;
+  action: "sent" | "skipped" | "failed";
+  skipped_reason?: string;
 }
 
 /* ══════════════════════════════════════════════
@@ -122,8 +143,7 @@ async function run(req: NextRequest) {
   const auth = authorized(req);
   if (!auth.ok) {
     console.warn(
-      `[cron] Unauthorized request. ` +
-      `x-vercel-cron: ${req.headers.get("x-vercel-cron") ?? "absent"}, ` +
+      `[cron] Unauthorized. x-vercel-cron: ${req.headers.get("x-vercel-cron") ?? "absent"}, ` +
       `CRON_SECRET set: ${!!process.env.CRON_SECRET}`,
     );
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -146,27 +166,43 @@ async function run(req: NextRequest) {
   console.log(`[cron] Active subscribers fetched: ${count}`);
 
   const results = { checked: 0, sent: 0, skipped: 0, failed: 0 };
+  const debug: DebugEntry[] = [];
 
   for (const sub of subscribers ?? []) {
     results.checked++;
 
-    const tz         = sub.timezone     || "America/Toronto";
-    const rawTime    = sub.delivery_time ?? "22:00";
-    const delivery24 = normalizeTime(rawTime);
-    const nowLocal   = localTimeHHMM(tz);
-    const todayLocal = localDateYMD(tz);
-    const inWindow   = inDeliveryWindow(nowLocal, delivery24);
+    const tz           = sub.timezone     || "America/Toronto";
+    const rawTime      = sub.delivery_time ?? "22:00";
+    const delivery24   = normalizeTime(rawTime);
+    const nowLocal     = localTimeHHMM(tz);
+    const todayLocal   = localDateYMD(tz);
+    const minDiff      = minutesSinceDelivery(nowLocal, delivery24);
+    const inWindow     = inDeliveryWindow(nowLocal, delivery24);
+
+    const entry: DebugEntry = {
+      email:                    sub.email,
+      is_active:                sub.is_active,
+      subscription_status:      sub.subscription_status ?? null,
+      delivery_time_raw:        rawTime,
+      delivery_time_normalized: delivery24,
+      timezone:                 tz,
+      current_local_time:       nowLocal,
+      minutes_since_delivery:   minDiff,
+      in_window:                inWindow,
+      already_sent_today:       false,
+      action:                   "skipped",
+    };
 
     console.log(
-      `[cron] Checking ${sub.email} | tz: ${tz} | ` +
-      `raw_delivery: ${rawTime} | normalized: ${delivery24} | ` +
-      `local_now: ${nowLocal} | local_date: ${todayLocal} | ` +
-      `in_window: ${inWindow}`,
+      `[cron] ${sub.email} | tz: ${tz} | delivery: ${delivery24} | ` +
+      `now: ${nowLocal} | diff: ${minDiff}min | in_window: ${inWindow}`,
     );
 
     if (!inWindow) {
-      console.log(`[cron]   → skip (outside delivery window)`);
+      entry.skipped_reason = "outside_send_window";
+      console.log(`[cron]   → skip (${minDiff < 0 ? "not yet" : "window passed"}, diff=${minDiff}min)`);
       results.skipped++;
+      debug.push(entry);
       continue;
     }
 
@@ -184,8 +220,11 @@ async function run(req: NextRequest) {
     }
 
     if (already) {
+      entry.already_sent_today = true;
+      entry.skipped_reason     = "already_sent_today";
       console.log(`[cron]   → skip (already sent on ${todayLocal})`);
       results.skipped++;
+      debug.push(entry);
       continue;
     }
 
@@ -226,6 +265,7 @@ async function run(req: NextRequest) {
         console.log(`[cron]   → sent_prayers row inserted (status: sent)`);
       }
 
+      entry.action = "sent";
       results.sent++;
 
     } catch (err) {
@@ -244,8 +284,12 @@ async function run(req: NextRequest) {
         });
       } catch { /* best-effort */ }
 
+      entry.action         = "failed";
+      entry.skipped_reason = msg;
       results.failed++;
     }
+
+    debug.push(entry);
   }
 
   console.log(
@@ -253,5 +297,5 @@ async function run(req: NextRequest) {
     `skipped: ${results.skipped} | failed: ${results.failed}`,
   );
 
-  return NextResponse.json({ ...results, utc: utcNow });
+  return NextResponse.json({ ...results, utc: utcNow, debug });
 }
