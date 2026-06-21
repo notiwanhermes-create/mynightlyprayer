@@ -90,21 +90,34 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        const plan          = metadata.plan ?? "email";
+        const phoneNumber   = metadata.phoneNumber?.trim() || null;
+        const smsConsent    = metadata.smsConsent === "true";
+        const isSmsPlan     = plan === "sms";
+        const smsConsentAt  = isSmsPlan && phoneNumber && smsConsent
+          ? new Date().toISOString() : null;
+
         const fields = {
-          first_name:                 metadata.firstName      ?? "",
-          email:                      session.customer_email  ?? metadata.email ?? "",
-          delivery_time:              metadata.deliveryTime   ?? "",
-          timezone:                   metadata.timezone       ?? "",
-          prayer_focus:               metadata.prayerFocus    ?? "",
-          tone:                       metadata.tone           ?? "",
-          stripe_customer_id:         customerId,
-          stripe_subscription_id:     subscriptionId,
-          stripe_checkout_session_id: session.id,
-          subscription_status:        subscriptionStatus,
-          last_payment_status:        session.payment_status  ?? "",
-          is_active:                  subscriptionStatus === "active" || subscriptionStatus === "trialing",
-          management_token:           managementToken,
-          updated_at:                 new Date().toISOString(),
+          first_name:                  metadata.firstName      ?? "",
+          email:                       session.customer_email  ?? metadata.email ?? "",
+          delivery_time:               metadata.deliveryTime   ?? "",
+          timezone:                    metadata.timezone       ?? "",
+          prayer_focus:                metadata.prayerFocus    ?? "",
+          tone:                        metadata.tone           ?? "",
+          stripe_customer_id:          customerId,
+          stripe_subscription_id:      subscriptionId,
+          stripe_checkout_session_id:  session.id,
+          subscription_status:         subscriptionStatus,
+          last_payment_status:         session.payment_status  ?? "",
+          is_active:                   subscriptionStatus === "active" || subscriptionStatus === "trialing",
+          management_token:            managementToken,
+          updated_at:                  new Date().toISOString(),
+          // SMS fields
+          phone_number:                isSmsPlan ? phoneNumber : null,
+          sms_enabled:                 isSmsPlan && !!phoneNumber,
+          sms_consent_at:              smsConsentAt,
+          sms_opt_in_source:           isSmsPlan && phoneNumber ? "signup" : null,
+          preferred_delivery_channel:  isSmsPlan ? "sms" : "email",
         };
 
         let dbError;

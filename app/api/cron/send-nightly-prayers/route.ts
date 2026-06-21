@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin }   from "@/lib/supabaseAdmin";
 import { generatePrayer }     from "@/lib/generatePrayer";
 import { sendPrayerEmail }    from "@/lib/sendPrayerEmail";
+import { sendSmsPrayer }      from "@/lib/sendSmsPrayer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,11 +11,6 @@ export const dynamic = "force-dynamic";
    Time helpers
 ══════════════════════════════════════════════ */
 
-/**
- * Normalize any delivery_time format to "HH:mm" (24-hour).
- * Handles: "22:00", "22:00:00", "22:00:00+00", "10:00+00:00",
- *          "9:30 PM", "10:00 AM", missing/null.
- */
 function normalizeTime(raw: string | null | undefined): string {
   if (!raw) return "22:00";
   const s = raw.trim();
@@ -39,7 +35,6 @@ function normalizeTime(raw: string | null | undefined): string {
   return "22:00";
 }
 
-/** Current local time as "HH:mm" for the given IANA timezone */
 function localTimeHHMM(tz: string): string {
   try {
     return new Intl.DateTimeFormat("en-GB", {
@@ -52,7 +47,6 @@ function localTimeHHMM(tz: string): string {
   }
 }
 
-/** Current local date as "YYYY-MM-DD" for the given IANA timezone */
 function localDateYMD(tz: string): string {
   try {
     return new Intl.DateTimeFormat("en-CA", {
@@ -70,21 +64,12 @@ const toMin = (hhmm: string) => {
   return (h ?? 0) * 60 + (m ?? 0);
 };
 
-/**
- * Minutes elapsed since delivery_time (positive = past, negative = future).
- * Wraps around midnight so e.g. 23:50 delivery / 00:05 current = +15.
- */
 function minutesSinceDelivery(currentHHMM: string, deliveryHHMM: string): number {
   let diff = toMin(currentHHMM) - toMin(deliveryHHMM);
-  // If more than 12 hours in the past, it's actually a future delivery (midnight wrap)
   if (diff < -720) diff += 1440;
   return diff;
 }
 
-/**
- * True if current local time is 0–10 minutes PAST the delivery time.
- * Window = 10 min (cron fires every 10 min, so at most one fire per window).
- */
 function inDeliveryWindow(currentHHMM: string, deliveryHHMM: string): boolean {
   const diff = minutesSinceDelivery(currentHHMM, deliveryHHMM);
   return diff >= 0 && diff <= 10;
@@ -113,21 +98,39 @@ function authorized(req: NextRequest): { ok: boolean; source: string } {
 }
 
 /* ══════════════════════════════════════════════
+   SMS eligibility guard
+══════════════════════════════════════════════ */
+function smsEligible(sub: Record<string, unknown>): { eligible: boolean; reason?: string } {
+  if (process.env.SMS_FEATURE_ENABLED !== "true") return { eligible: false, reason: "feature_disabled" };
+  if (!sub.sms_enabled)        return { eligible: false, reason: "sms_not_enabled" };
+  if (!sub.phone_number)       return { eligible: false, reason: "no_phone_number" };
+  if (!sub.sms_consent_at)     return { eligible: false, reason: "no_consent" };
+  if (sub.sms_unsubscribed_at) return { eligible: false, reason: "unsubscribed" };
+  return { eligible: true };
+}
+
+/* ══════════════════════════════════════════════
    Debug entry shape
 ══════════════════════════════════════════════ */
 interface DebugEntry {
-  email: string;
-  is_active: boolean;
-  subscription_status: string | null;
-  delivery_time_raw: string;
-  delivery_time_normalized: string;
-  timezone: string;
-  current_local_time: string;
-  minutes_since_delivery: number;
-  in_window: boolean;
-  already_sent_today: boolean;
-  action: "sent" | "skipped" | "failed";
-  skipped_reason?: string;
+  email:                      string;
+  is_active:                  boolean;
+  subscription_status:        string | null;
+  delivery_time_raw:          string;
+  delivery_time_normalized:   string;
+  timezone:                   string;
+  current_local_time:         string;
+  minutes_since_delivery:     number;
+  in_window:                  boolean;
+  preferred_delivery_channel: string;
+  email_already_sent_today:   boolean;
+  email_action:               "sent" | "skipped" | "failed" | "n/a";
+  email_skipped_reason?:      string;
+  sms_eligible:               boolean;
+  sms_ineligible_reason?:     string;
+  sms_already_sent_today:     boolean;
+  sms_action:                 "sent" | "skipped" | "failed" | "n/a";
+  sms_skipped_reason?:        string;
 }
 
 /* ══════════════════════════════════════════════
@@ -150,6 +153,8 @@ async function run(req: NextRequest) {
   }
   console.log(`[cron] Auth passed — source: ${auth.source}`);
 
+  const smsFeatEnabled = process.env.SMS_FEATURE_ENABLED === "true";
+
   const db = getSupabaseAdmin();
 
   const { data: subscribers, error: fetchErr } = await db
@@ -165,137 +170,249 @@ async function run(req: NextRequest) {
   const count = subscribers?.length ?? 0;
   console.log(`[cron] Active subscribers fetched: ${count}`);
 
-  const results = { checked: 0, sent: 0, skipped: 0, failed: 0 };
+  const results = {
+    checked:       0,
+    email_sent:    0,
+    email_skipped: 0,
+    email_failed:  0,
+    sms_sent:      0,
+    sms_skipped:   0,
+    sms_failed:    0,
+  };
   const debug: DebugEntry[] = [];
 
   for (const sub of subscribers ?? []) {
     results.checked++;
 
-    const tz           = sub.timezone     || "America/Toronto";
-    const rawTime      = sub.delivery_time ?? "22:00";
-    const delivery24   = normalizeTime(rawTime);
-    const nowLocal     = localTimeHHMM(tz);
-    const todayLocal   = localDateYMD(tz);
-    const minDiff      = minutesSinceDelivery(nowLocal, delivery24);
-    const inWindow     = inDeliveryWindow(nowLocal, delivery24);
+    const tz         = sub.timezone     || "America/Toronto";
+    const rawTime    = sub.delivery_time ?? "22:00";
+    const delivery24 = normalizeTime(rawTime);
+    const nowLocal   = localTimeHHMM(tz);
+    const todayLocal = localDateYMD(tz);
+    const minDiff    = minutesSinceDelivery(nowLocal, delivery24);
+    const inWindow   = inDeliveryWindow(nowLocal, delivery24);
+    const channel    = (sub.preferred_delivery_channel as string) || "email";
+
+    const { eligible: canSms, reason: smsIneligibleReason } = smsEligible(sub as Record<string, unknown>);
 
     const entry: DebugEntry = {
-      email:                    sub.email,
-      is_active:                sub.is_active,
-      subscription_status:      sub.subscription_status ?? null,
-      delivery_time_raw:        rawTime,
-      delivery_time_normalized: delivery24,
-      timezone:                 tz,
-      current_local_time:       nowLocal,
-      minutes_since_delivery:   minDiff,
-      in_window:                inWindow,
-      already_sent_today:       false,
-      action:                   "skipped",
+      email:                      sub.email,
+      is_active:                  sub.is_active,
+      subscription_status:        sub.subscription_status ?? null,
+      delivery_time_raw:          rawTime,
+      delivery_time_normalized:   delivery24,
+      timezone:                   tz,
+      current_local_time:         nowLocal,
+      minutes_since_delivery:     minDiff,
+      in_window:                  inWindow,
+      preferred_delivery_channel: channel,
+      email_already_sent_today:   false,
+      email_action:               "n/a",
+      sms_eligible:               canSms,
+      sms_ineligible_reason:      smsIneligibleReason,
+      sms_already_sent_today:     false,
+      sms_action:                 "n/a",
     };
 
     console.log(
       `[cron] ${sub.email} | tz: ${tz} | delivery: ${delivery24} | ` +
-      `now: ${nowLocal} | diff: ${minDiff}min | in_window: ${inWindow}`,
+      `now: ${nowLocal} | diff: ${minDiff}min | in_window: ${inWindow} | channel: ${channel}`,
     );
 
     if (!inWindow) {
-      entry.skipped_reason = "outside_send_window";
+      entry.email_action         = "skipped";
+      entry.email_skipped_reason = "outside_send_window";
+      entry.sms_action           = "skipped";
+      entry.sms_skipped_reason   = "outside_send_window";
       console.log(`[cron]   → skip (${minDiff < 0 ? "not yet" : "window passed"}, diff=${minDiff}min)`);
-      results.skipped++;
+      results.email_skipped++;
+      if (canSms) results.sms_skipped++;
       debug.push(entry);
       continue;
     }
 
-    /* Already sent a real prayer today (test_sent rows do NOT block this) */
-    const { data: already, error: alreadyErr } = await db
-      .from("sent_prayers")
-      .select("id")
-      .eq("subscriber_id", sub.id)
-      .eq("prayer_date", todayLocal)
-      .not("status", "eq", "test_sent")
-      .maybeSingle();
+    const wantsEmail = channel === "email" || channel === "both";
+    const wantsSms   = (channel === "sms" || channel === "both") && canSms;
 
-    if (alreadyErr) {
-      console.error(`[cron]   → DB error checking sent_prayers: ${alreadyErr.message}`);
-    }
+    /* ── Email delivery ── */
+    let prayerText: string | null = null;
+    let subject: string | null    = null;
 
-    if (already) {
-      entry.already_sent_today = true;
-      entry.skipped_reason     = "already_sent_today";
-      console.log(`[cron]   → skip (already sent on ${todayLocal})`);
-      results.skipped++;
-      debug.push(entry);
-      continue;
-    }
+    if (wantsEmail) {
+      const { data: alreadySentEmail, error: alreadyEmailErr } = await db
+        .from("sent_prayers")
+        .select("id")
+        .eq("subscriber_id", sub.id)
+        .eq("prayer_date", todayLocal)
+        .not("status", "eq", "test_sent")
+        .maybeSingle();
 
-    /* Generate + send */
-    console.log(`[cron]   → generating prayer for ${sub.email}…`);
-    try {
-      const { subject, prayerText } = await generatePrayer({
-        firstName:   sub.first_name   ?? "Friend",
-        prayerFocus: sub.prayer_focus ?? "peace",
-        tone:        sub.tone         ?? "gentle",
-      });
-      console.log(`[cron]   → prayer generated, subject: "${subject}"`);
+      if (alreadyEmailErr) console.error(`[cron]   → DB error checking sent_prayers: ${alreadyEmailErr.message}`);
 
-      const { emailId } = await sendPrayerEmail({
-        to:              sub.email,
-        firstName:       sub.first_name ?? "Friend",
-        subject,
-        prayerText,
-        managementToken: sub.management_token ?? "",
-      });
-      console.log(`[cron]   → email sent, resend_id: ${emailId}`);
-
-      const { error: insertErr } = await db.from("sent_prayers").insert({
-        subscriber_id:   sub.id,
-        email:           sub.email,
-        prayer_date:     todayLocal,
-        delivery_time:   rawTime,
-        timezone:        tz,
-        subject,
-        prayer_text:     prayerText,
-        resend_email_id: emailId,
-        status:          "sent",
-      });
-
-      if (insertErr) {
-        console.error(`[cron]   → DB insert error: ${insertErr.message}`);
+      if (alreadySentEmail) {
+        entry.email_already_sent_today = true;
+        entry.email_action             = "skipped";
+        entry.email_skipped_reason     = "already_sent_today";
+        console.log(`[cron]   → email: skip (already sent on ${todayLocal})`);
+        results.email_skipped++;
       } else {
-        console.log(`[cron]   → sent_prayers row inserted (status: sent)`);
+        console.log(`[cron]   → generating prayer for email…`);
+        try {
+          const generated = await generatePrayer({
+            firstName:   sub.first_name   ?? "Friend",
+            prayerFocus: sub.prayer_focus ?? "peace",
+            tone:        sub.tone         ?? "gentle",
+          });
+          prayerText = generated.prayerText;
+          subject    = generated.subject;
+          console.log(`[cron]   → prayer generated, subject: "${subject}"`);
+
+          const { emailId } = await sendPrayerEmail({
+            to:              sub.email,
+            firstName:       sub.first_name ?? "Friend",
+            subject,
+            prayerText,
+            managementToken: sub.management_token ?? "",
+          });
+          console.log(`[cron]   → email sent, resend_id: ${emailId}`);
+
+          const { error: insertErr } = await db.from("sent_prayers").insert({
+            subscriber_id:   sub.id,
+            email:           sub.email,
+            prayer_date:     todayLocal,
+            delivery_time:   rawTime,
+            timezone:        tz,
+            subject,
+            prayer_text:     prayerText,
+            resend_email_id: emailId,
+            status:          "sent",
+          });
+          if (insertErr) console.error(`[cron]   → sent_prayers insert error: ${insertErr.message}`);
+
+          entry.email_action = "sent";
+          results.email_sent++;
+
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[cron]   → email FAILED for ${sub.email}: ${msg}`);
+          try {
+            await db.from("sent_prayers").insert({
+              subscriber_id: sub.id,
+              email:         sub.email,
+              prayer_date:   todayLocal,
+              delivery_time: rawTime,
+              timezone:      tz,
+              status:        "failed",
+              error_message: msg,
+            });
+          } catch { /* best-effort */ }
+          entry.email_action         = "failed";
+          entry.email_skipped_reason = msg;
+          results.email_failed++;
+        }
       }
+    } else {
+      entry.email_action         = "skipped";
+      entry.email_skipped_reason = "channel_is_sms_only";
+      results.email_skipped++;
+    }
 
-      entry.action = "sent";
-      results.sent++;
+    /* ── SMS delivery ── */
+    if (wantsSms) {
+      const { data: alreadySentSms, error: alreadySmsErr } = await db
+        .from("sent_sms")
+        .select("id")
+        .eq("subscriber_id", sub.id)
+        .eq("sms_date", todayLocal)
+        .not("status", "eq", "test_sent")
+        .maybeSingle();
 
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[cron]   → FAILED for ${sub.email}: ${msg}`);
+      if (alreadySmsErr) console.error(`[cron]   → DB error checking sent_sms: ${alreadySmsErr.message}`);
 
-      try {
-        await db.from("sent_prayers").insert({
-          subscriber_id: sub.id,
-          email:         sub.email,
-          prayer_date:   todayLocal,
-          delivery_time: rawTime,
-          timezone:      tz,
-          status:        "failed",
-          error_message: msg,
-        });
-      } catch { /* best-effort */ }
+      if (alreadySentSms) {
+        entry.sms_already_sent_today = true;
+        entry.sms_action             = "skipped";
+        entry.sms_skipped_reason     = "already_sent_today";
+        console.log(`[cron]   → sms: skip (already sent on ${todayLocal})`);
+        results.sms_skipped++;
+      } else {
+        // Reuse prayer already generated for email, or generate fresh for sms-only
+        if (!prayerText) {
+          try {
+            const generated = await generatePrayer({
+              firstName:   sub.first_name   ?? "Friend",
+              prayerFocus: sub.prayer_focus ?? "peace",
+              tone:        sub.tone         ?? "gentle",
+            });
+            prayerText = generated.prayerText;
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error(`[cron]   → prayer generation failed for SMS: ${msg}`);
+            entry.sms_action         = "failed";
+            entry.sms_skipped_reason = msg;
+            results.sms_failed++;
+            debug.push(entry);
+            continue;
+          }
+        }
 
-      entry.action         = "failed";
-      entry.skipped_reason = msg;
-      results.failed++;
+        console.log(`[cron]   → sending SMS to ${sub.phone_number}…`);
+        try {
+          const { messageSid, smsText } = await sendSmsPrayer({
+            to:         sub.phone_number,
+            firstName:  sub.first_name ?? "Friend",
+            prayerText,
+          });
+          console.log(`[cron]   → SMS sent, SID: ${messageSid}`);
+
+          const { error: smsInsertErr } = await db.from("sent_sms").insert({
+            subscriber_id:      sub.id,
+            phone_number:       sub.phone_number,
+            sms_date:           todayLocal,
+            delivery_time:      rawTime,
+            timezone:           tz,
+            sms_text:           smsText,
+            twilio_message_sid: messageSid,
+            status:             "sent",
+          });
+          if (smsInsertErr) console.error(`[cron]   → sent_sms insert error: ${smsInsertErr.message}`);
+
+          entry.sms_action = "sent";
+          results.sms_sent++;
+
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[cron]   → SMS FAILED for ${sub.email}: ${msg}`);
+          try {
+            await db.from("sent_sms").insert({
+              subscriber_id: sub.id,
+              phone_number:  sub.phone_number,
+              sms_date:      todayLocal,
+              delivery_time: rawTime,
+              timezone:      tz,
+              status:        "failed",
+              error_message: msg,
+            });
+          } catch { /* best-effort */ }
+          entry.sms_action         = "failed";
+          entry.sms_skipped_reason = msg;
+          results.sms_failed++;
+        }
+      }
+    } else if (channel === "sms" || channel === "both") {
+      entry.sms_action         = "skipped";
+      entry.sms_skipped_reason = smsIneligibleReason ?? "not_eligible";
+      results.sms_skipped++;
     }
 
     debug.push(entry);
   }
 
   console.log(
-    `[cron] ── Done ── checked: ${results.checked} | sent: ${results.sent} | ` +
-    `skipped: ${results.skipped} | failed: ${results.failed}`,
+    `[cron] ── Done ── checked: ${results.checked} | ` +
+    `email: sent=${results.email_sent} skipped=${results.email_skipped} failed=${results.email_failed} | ` +
+    `sms: sent=${results.sms_sent} skipped=${results.sms_skipped} failed=${results.sms_failed}`,
   );
 
-  return NextResponse.json({ ...results, utc: utcNow, debug });
+  return NextResponse.json({ ...results, utc: utcNow, sms_feature_enabled: smsFeatEnabled, debug });
 }

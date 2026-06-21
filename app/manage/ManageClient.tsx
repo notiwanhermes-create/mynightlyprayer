@@ -50,28 +50,40 @@ const TONE_OPTIONS = [
   { value: "faith",    label: "Faith-filled" },
 ] as const;
 
+type DeliveryChannel = "email" | "sms" | "both";
+
 interface ManageClientProps {
-  token:         string;
-  firstName:     string;
-  deliveryTime:  string;
-  timezone:      string;
-  prayerFocus:   string;
-  tone:          string;
-  prayerRequest: string;
-  isActive:      boolean;
-  portalError:   boolean;
+  token:                    string;
+  firstName:                string;
+  deliveryTime:             string;
+  timezone:                 string;
+  prayerFocus:              string;
+  tone:                     string;
+  prayerRequest:            string;
+  isActive:                 boolean;
+  portalError:              boolean;
+  smsFeatureEnabled:        boolean;
+  phoneNumber:              string;
+  smsEnabled:               boolean;
+  smsConsented:             boolean;
+  preferredDeliveryChannel: DeliveryChannel;
 }
 
 export default function ManageClient({
   token,
-  firstName:     initFirstName,
-  deliveryTime:  initDeliveryTime,
-  timezone:      initTimezone,
-  prayerFocus:   initPrayerFocus,
-  tone:          initTone,
-  prayerRequest: initPrayerRequest,
-  isActive:      initIsActive,
+  firstName:                initFirstName,
+  deliveryTime:             initDeliveryTime,
+  timezone:                 initTimezone,
+  prayerFocus:              initPrayerFocus,
+  tone:                     initTone,
+  prayerRequest:            initPrayerRequest,
+  isActive:                 initIsActive,
   portalError,
+  smsFeatureEnabled,
+  phoneNumber:              initPhoneNumber,
+  smsEnabled:               initSmsEnabled,
+  smsConsented:             initSmsConsented,
+  preferredDeliveryChannel: initChannel,
 }: ManageClientProps) {
   /* ── form state ── */
   const [firstName,     setFirstName]     = useState(initFirstName);
@@ -81,6 +93,15 @@ export default function ManageClient({
   const [tone,          setTone]          = useState(initTone);
   const [prayerRequest, setPrayerRequest] = useState(initPrayerRequest);
   const [isActive,      setIsActive]      = useState(initIsActive);
+
+  /* ── SMS state ── */
+  const [phoneNumber,  setPhoneNumber]  = useState(initPhoneNumber);
+  const [smsEnabled,   setSmsEnabled]   = useState(initSmsEnabled);
+  const [smsConsented, setSmsConsented] = useState(initSmsConsented);
+  const [channel,      setChannel]      = useState<DeliveryChannel>(initChannel);
+  const [smsSaving,    setSmsSaving]    = useState(false);
+  const [smsSaveMsg,   setSmsSaveMsg]   = useState<string | null>(null);
+  const [smsSaveErr,   setSmsSaveErr]   = useState<string | null>(null);
 
   /* ── ui state ── */
   const [saving,   setSaving]   = useState(false);
@@ -142,6 +163,39 @@ export default function ManageClient({
       setPauseErr("Network error. Please try again.");
     } finally {
       setToggling(false);
+    }
+  }
+
+  /* ── save SMS settings ── */
+  async function handleSmsSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSmsSaving(true);
+    setSmsSaveMsg(null);
+    setSmsSaveErr(null);
+
+    try {
+      const res  = await fetch("/api/update-sms-settings", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          token,
+          phoneNumber:              phoneNumber.trim() || null,
+          smsEnabled,
+          preferredDeliveryChannel: channel,
+        }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok || data.error) {
+        setSmsSaveErr(data.error ?? "Something went wrong.");
+      } else {
+        if (smsEnabled && !smsConsented) setSmsConsented(true);
+        setSmsSaveMsg("SMS settings saved.");
+        setTimeout(() => setSmsSaveMsg(null), 4000);
+      }
+    } catch {
+      setSmsSaveErr("Network error. Please try again.");
+    } finally {
+      setSmsSaving(false);
     }
   }
 
@@ -345,6 +399,95 @@ export default function ManageClient({
 
       {/* ─── Divider ─── */}
       <div style={dividerStyle} />
+
+      {/* ─── SMS Settings (feature-gated) ─── */}
+      {smsFeatureEnabled && (
+        <>
+          <div style={dividerStyle} />
+          <form onSubmit={handleSmsSave}>
+            <div style={sectionCardStyle}>
+              <p style={{ margin: "0 0 4px", ...eyebrowStyle }}>SMS delivery</p>
+              <p style={{ margin: "0 0 20px", fontSize: "0.88rem", color: "var(--secondary-text)", lineHeight: 1.7 }}>
+                Receive your nightly prayer by text message.
+              </p>
+
+              {/* Delivery channel */}
+              <div style={{ marginBottom: 20 }}>
+                <label htmlFor="m-channel" className="form-label">Delivery channel</label>
+                <select
+                  id="m-channel"
+                  className="form-input"
+                  value={channel}
+                  onChange={e => setChannel(e.target.value as DeliveryChannel)}
+                >
+                  <option value="email">Email only</option>
+                  <option value="sms">SMS only</option>
+                  <option value="both">Email + SMS</option>
+                </select>
+              </div>
+
+              {/* Phone number */}
+              <div style={{ marginBottom: 20 }}>
+                <label htmlFor="m-phone" className="form-label">Mobile number</label>
+                <input
+                  id="m-phone"
+                  type="tel"
+                  className="form-input"
+                  placeholder="+1 555 000 0000"
+                  value={phoneNumber}
+                  onChange={e => setPhoneNumber(e.target.value)}
+                  autoComplete="tel"
+                />
+              </div>
+
+              {/* Enable / disable SMS */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <label style={{
+                  display:    "flex",
+                  alignItems: "center",
+                  gap:        10,
+                  cursor:     "pointer",
+                  fontSize:   "0.85rem",
+                  fontWeight: 300,
+                  color:      "var(--navy-text)",
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={smsEnabled}
+                    onChange={e => setSmsEnabled(e.target.checked)}
+                    style={{ accentColor: "var(--gold)", width: 15, height: 15 }}
+                  />
+                  Enable SMS delivery
+                </label>
+              </div>
+
+              {smsEnabled && (
+                <p style={{ marginTop: 8, fontSize: "0.72rem", color: "var(--secondary-text)", lineHeight: 1.5 }}>
+                  Standard message rates apply. Reply STOP to opt out at any time.
+                </p>
+              )}
+
+              {!smsEnabled && smsConsented && (
+                <p style={{ marginTop: 8, fontSize: "0.72rem", color: "var(--secondary-text)", lineHeight: 1.5 }}>
+                  SMS is paused. Re-enable above to receive text prayers again.
+                </p>
+              )}
+            </div>
+
+            {smsSaveMsg && <p style={successMsgStyle}>{smsSaveMsg}</p>}
+            {smsSaveErr && <p style={errorMsgStyle}>{smsSaveErr}</p>}
+
+            <button
+              type="submit"
+              className="btn-gold"
+              disabled={smsSaving}
+              style={{ width: "100%", marginTop: 16, justifyContent: "center" }}
+            >
+              {smsSaving ? "Saving…" : "Save SMS settings"}
+            </button>
+          </form>
+        </>
+      )}
 
       {/* ─── Cancel subscription ─── */}
       <div style={{ ...sectionCardStyle, textAlign: "center" }}>

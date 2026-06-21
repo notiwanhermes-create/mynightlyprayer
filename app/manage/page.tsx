@@ -36,11 +36,11 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
 
   /* ─── Fetch subscriber (server-side only) ─── */
   const db = getSupabaseAdmin();
+  const smsFeatureEnabled = process.env.SMS_FEATURE_ENABLED === "true";
+
   const { data: subscriber } = await db
     .from("subscribers")
-    .select(
-      "id, first_name, delivery_time, timezone, prayer_focus, tone, prayer_request, is_active, management_token"
-    )
+    .select("id, first_name, delivery_time, timezone, prayer_focus, tone, prayer_request, is_active, management_token, phone_number, sms_enabled, sms_consent_at, sms_unsubscribed_at, preferred_delivery_channel")
     .eq("management_token", token)
     .maybeSingle();
 
@@ -73,6 +73,13 @@ export default async function ManagePage({ searchParams }: ManagePageProps) {
           prayerRequest={subscriber.prayer_request ?? ""}
           isActive={subscriber.is_active ?? true}
           portalError={portalError}
+          smsFeatureEnabled={smsFeatureEnabled}
+          phoneNumber={subscriber.phone_number ?? ""}
+          smsEnabled={subscriber.sms_enabled ?? false}
+          smsConsented={!!subscriber.sms_consent_at}
+          preferredDeliveryChannel={
+            (subscriber.preferred_delivery_channel as "email" | "sms" | "both") ?? "email"
+          }
         />
       </main>
     </>
