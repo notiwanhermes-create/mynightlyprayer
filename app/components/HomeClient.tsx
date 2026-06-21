@@ -416,12 +416,15 @@ export default function HomeClient({ smsPriceAvailable = false }: { smsPriceAvai
                       id="np-phone"
                       className="form-input"
                       type="tel"
-                      placeholder="+1 555 000 0000"
+                      placeholder="+1 226 724 1954"
                       value={form.phoneNumber}
                       onChange={e => setForm(p => ({ ...p, phoneNumber: e.target.value }))}
                       required
                       autoComplete="tel"
                     />
+                    <span style={{ fontSize: "0.62rem", color: "rgba(16,42,67,0.4)", marginTop: 2 }}>
+                      Include country code — e.g. +1 for US/Canada
+                    </span>
                   </div>
                   <div className="sms-consent-wrap">
                     <label className="sms-consent-label">

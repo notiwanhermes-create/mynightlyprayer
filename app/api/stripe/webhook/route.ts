@@ -4,6 +4,19 @@ import { randomBytes } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendWelcomeEmail } from "@/lib/sendWelcomeEmail";
 
+function normalizePhoneE164(raw: string): string | null {
+  if (!raw?.trim()) return null;
+  const hasPlus = raw.trimStart().startsWith("+");
+  const digits  = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  if (hasPlus) return digits.length >= 7 && digits.length <= 15 ? `+${digits}` : null;
+  const stripped = digits.replace(/^0+/, "") || digits;
+  if (stripped.length === 10)                                return `+1${stripped}`;
+  if (stripped.length === 11 && stripped.startsWith("1"))    return `+${stripped}`;
+  if (stripped.length >= 7   && stripped.length <= 15)       return `+${stripped}`;
+  return null;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -90,12 +103,22 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        const plan          = metadata.plan ?? "email";
-        const phoneNumber   = metadata.phoneNumber?.trim() || null;
-        const smsConsent    = metadata.smsConsent === "true";
-        const isSmsPlan     = plan === "sms";
-        const smsConsentAt  = isSmsPlan && phoneNumber && smsConsent
+        const plan        = metadata.plan ?? "email";
+        const isSmsPlan   = plan === "sms";
+        const phoneNumber = isSmsPlan
+          ? normalizePhoneE164(metadata.phoneNumber ?? "")
+          : null;
+        const smsConsent  = metadata.smsConsent === "true";
+        // Require phone + explicit consent for sms_consent_at
+        const smsConsentAt = isSmsPlan && phoneNumber && smsConsent
           ? new Date().toISOString() : null;
+
+        if (isSmsPlan && !smsConsentAt) {
+          console.warn(
+            `[webhook] SMS plan but sms_consent_at not set — ` +
+            `phone: ${metadata.phoneNumber ?? "missing"}, consent: ${metadata.smsConsent ?? "missing"}`,
+          );
+        }
 
         const fields = {
           first_name:                  metadata.firstName      ?? "",

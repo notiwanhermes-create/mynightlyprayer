@@ -4,6 +4,44 @@ import Stripe from "stripe";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Normalise any phone string to E.164 (+12267241954).
+ * Handles: "+12267241954", "2267241954", "12267241954",
+ *          "012267241954", "(226) 724-1954", "+44 7700 900123".
+ * Returns null if the result is implausibly short/long.
+ */
+function normalizePhoneE164(raw: string): string | null {
+  if (!raw?.trim()) return null;
+
+  const hasPlus = raw.trimStart().startsWith("+");
+  const digits  = raw.replace(/\D/g, "");
+
+  if (!digits) return null;
+
+  if (hasPlus) {
+    // Already international — validate length and return
+    return digits.length >= 7 && digits.length <= 15 ? `+${digits}` : null;
+  }
+
+  // Strip leading zeros (e.g. 012267241954 → 12267241954)
+  const stripped = digits.replace(/^0+/, "") || digits;
+
+  if (stripped.length === 10) {
+    // 10-digit North American: prepend +1
+    return `+1${stripped}`;
+  }
+  if (stripped.length === 11 && stripped.startsWith("1")) {
+    // 11-digit with country code: prepend +
+    return `+${stripped}`;
+  }
+  if (stripped.length >= 7 && stripped.length <= 15) {
+    // Other international: prepend +
+    return `+${stripped}`;
+  }
+
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -28,6 +66,22 @@ export async function POST(req: NextRequest) {
     if (plan === "sms" && !phoneNumber) {
       return NextResponse.json({ error: "Mobile number is required." }, { status: 400 });
     }
+    if (plan === "sms" && !smsConsent) {
+      return NextResponse.json({ error: "SMS consent is required to continue." }, { status: 400 });
+    }
+
+    /* ── Normalize phone to E.164 for SMS plan ── */
+    let normalizedPhone = "";
+    if (plan === "sms") {
+      const e164 = normalizePhoneE164(String(phoneNumber ?? ""));
+      if (!e164) {
+        return NextResponse.json(
+          { error: "Invalid mobile number. Please include your country code (e.g. +1 for US/Canada)." },
+          { status: 400 },
+        );
+      }
+      normalizedPhone = e164;
+    }
 
     /* ── Select price ID based on plan ── */
     let priceId: string;
@@ -47,14 +101,14 @@ export async function POST(req: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
     const sharedMetadata: Record<string, string> = {
-      plan:         plan          ?? "email",
-      firstName:    firstName     ?? "",
-      email:        email         ?? "",
-      phoneNumber:  phoneNumber   ?? "",
-      deliveryTime: deliveryTime  ?? "",
-      timezone:     timezone      ?? "",
-      prayerFocus:  prayerFocus   ?? "",
-      tone:         tone          ?? "",
+      plan:         plan           ?? "email",
+      firstName:    firstName      ?? "",
+      email:        email          ?? "",
+      phoneNumber:  normalizedPhone,          // E.164 for SMS plan, "" for email plan
+      deliveryTime: deliveryTime   ?? "",
+      timezone:     timezone       ?? "",
+      prayerFocus:  prayerFocus    ?? "",
+      tone:         tone           ?? "",
       smsConsent:   smsConsent ? "true" : "false",
     };
 
