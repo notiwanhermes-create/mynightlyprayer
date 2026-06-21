@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin }   from "@/lib/supabaseAdmin";
-import { generatePrayer }     from "@/lib/generatePrayer";
+import { generatePrayer, generateSmsPrayer } from "@/lib/generatePrayer";
 import { sendPrayerEmail }    from "@/lib/sendPrayerEmail";
 import { sendSmsPrayer }      from "@/lib/sendSmsPrayer";
 
@@ -336,24 +336,23 @@ async function run(req: NextRequest) {
         console.log(`[cron]   → sms: skip (already sent on ${todayLocal})`);
         results.sms_skipped++;
       } else {
-        // Reuse prayer already generated for email, or generate fresh for sms-only
-        if (!prayerText) {
-          try {
-            const generated = await generatePrayer({
-              firstName:   sub.first_name   ?? "Friend",
-              prayerFocus: sub.prayer_focus ?? "peace",
-              tone:        sub.tone         ?? "gentle",
-            });
-            prayerText = generated.prayerText;
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            console.error(`[cron]   → prayer generation failed for SMS: ${msg}`);
-            entry.sms_action         = "failed";
-            entry.sms_skipped_reason = msg;
-            results.sms_failed++;
-            debug.push(entry);
-            continue;
-          }
+        // Always generate a dedicated short prayer for SMS
+        let smsPrayerText: string;
+        try {
+          const generated = await generateSmsPrayer({
+            firstName:   sub.first_name   ?? "Friend",
+            prayerFocus: sub.prayer_focus ?? "peace",
+            tone:        sub.tone         ?? "gentle",
+          });
+          smsPrayerText = generated.prayerText;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[cron]   → SMS prayer generation failed for ${sub.email}: ${msg}`);
+          entry.sms_action         = "failed";
+          entry.sms_skipped_reason = msg;
+          results.sms_failed++;
+          debug.push(entry);
+          continue;
         }
 
         console.log(`[cron]   → sending SMS to ${sub.phone_number}…`);
@@ -361,7 +360,7 @@ async function run(req: NextRequest) {
           const { messageSid, smsText } = await sendSmsPrayer({
             to:         sub.phone_number,
             firstName:  sub.first_name ?? "Friend",
-            prayerText,
+            prayerText: smsPrayerText,
           });
           console.log(`[cron]   → SMS sent, SID: ${messageSid}`);
 

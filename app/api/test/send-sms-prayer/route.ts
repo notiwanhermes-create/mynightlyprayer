@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { generatePrayer }   from "@/lib/generatePrayer";
+import { generateSmsPrayer } from "@/lib/generatePrayer";
 import { sendSmsPrayer }    from "@/lib/sendSmsPrayer";
 
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const { subject, prayerText } = await generatePrayer({
+    const { prayerText } = await generateSmsPrayer({
       firstName:   sub.first_name   ?? "Friend",
       prayerFocus: sub.prayer_focus ?? "peace",
       tone:        sub.tone         ?? "gentle",
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
       to:         sub.phone_number,
       messageSid,
       smsText,
-      subject,
+      chars:      smsText.length,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
