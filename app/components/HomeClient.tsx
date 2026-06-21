@@ -1,132 +1,81 @@
 "use client";
 
-import { useRef, useState } from "react";
-import PrayerPreviewCard from "./PrayerPreviewCard";
-
-/* ── Types ── */
-type Plan = "email" | "sms";
-
-interface FormState {
-  firstName:    string;
-  email:        string;
-  phoneNumber:  string;
-  deliveryTime: string;
-  timezone:     string;
-  prayerFocus:  string;
-  tone:         string;
-  smsConsent:   boolean;
-}
-
-/* ── Data ── */
-const DELIVERY_TIMES = [
-  { value: "20:00", label: "8:00 PM"  },
-  { value: "20:30", label: "8:30 PM"  },
-  { value: "21:00", label: "9:00 PM"  },
-  { value: "21:30", label: "9:30 PM"  },
-  { value: "22:00", label: "10:00 PM" },
-  { value: "22:30", label: "10:30 PM" },
-  { value: "23:00", label: "11:00 PM" },
-  { value: "23:30", label: "11:30 PM" },
-  { value: "00:00", label: "12:00 AM" },
-];
+import { useState } from "react";
 
 const TIMEZONES = [
-  { value: "America/New_York",    label: "Eastern (ET)"  },
-  { value: "America/Chicago",     label: "Central (CT)"  },
-  { value: "America/Denver",      label: "Mountain (MT)" },
-  { value: "America/Los_Angeles", label: "Pacific (PT)"  },
-  { value: "America/Anchorage",   label: "Alaska (AKT)"  },
-  { value: "Pacific/Honolulu",    label: "Hawaii (HT)"   },
-  { value: "Europe/London",       label: "London (GMT)"  },
-  { value: "Europe/Paris",        label: "Paris (CET)"   },
+  { value: "America/New_York",    label: "Eastern Time (ET)" },
+  { value: "America/Chicago",     label: "Central Time (CT)" },
+  { value: "America/Denver",      label: "Mountain Time (MT)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "America/Phoenix",     label: "Arizona (AZ)" },
+  { value: "America/Anchorage",   label: "Alaska (AK)" },
+  { value: "Pacific/Honolulu",    label: "Hawaii (HI)" },
+  { value: "America/Toronto",     label: "Toronto / EST" },
+  { value: "America/Vancouver",   label: "Vancouver / PST" },
+  { value: "Europe/London",       label: "London (GMT/BST)" },
+  { value: "Europe/Paris",        label: "Paris / Berlin (CET)" },
   { value: "Australia/Sydney",    label: "Sydney (AEST)" },
-  { value: "Asia/Tokyo",          label: "Tokyo (JST)"   },
-  { value: "Asia/Dubai",          label: "Dubai (GST)"   },
-];
-
-const PRAYER_FOCUS = [
-  { value: "peace",       label: "Peace & Calm"    },
-  { value: "protection",  label: "Protection"      },
-  { value: "gratitude",   label: "Gratitude"       },
-  { value: "healing",     label: "Healing"         },
-  { value: "forgiveness", label: "Forgiveness"     },
-  { value: "strength",    label: "Strength & Hope" },
-];
-
-const TONES = [
-  { value: "gentle",       label: "Gentle & Soft"     },
-  { value: "traditional",  label: "Traditional"       },
-  { value: "contemporary", label: "Contemporary"      },
-  { value: "poetic",       label: "Poetic & Literary" },
-];
-
-const TRUST_ITEMS = [
-  "No charge today",
-  "Cancel anytime",
-  "7 nights free",
-  "No app needed",
-];
+] as const;
 
 const PLAN_CONFIG = {
   email: {
-    label:   "Email Prayer",
-    icon:    "✉",
-    price:   "$5.99",
-    trial:   "7 nights free",
+    label: "Email Prayer",
+    price: "$5.99",
     bullets: [
       "Delivered to your inbox",
       "Best for longer prayers",
       "Easy to save and reread",
       "Cancel anytime",
     ],
-    ctaText: "Start Email Prayer Free",
   },
   sms: {
-    label:   "SMS Prayer",
-    icon:    "💬",
-    price:   "$9.99",
-    trial:   "7 nights free",
+    label: "SMS Prayer",
+    price: "$9.99",
     bullets: [
       "Delivered to your phone",
       "Short peaceful nightly prayer",
       "Perfect right before sleep",
       "Cancel anytime",
     ],
-    ctaText: "Start SMS Prayer Free",
   },
-};
+} as const;
 
-/* ── Component ── */
-export default function HomeClient({ smsPriceAvailable = false }: { smsPriceAvailable?: boolean }) {
-  const signupRef = useRef<HTMLElement>(null);
+const TIMES = [
+  { value: "20:00", label: "8:00 PM" },
+  { value: "20:30", label: "8:30 PM" },
+  { value: "21:00", label: "9:00 PM" },
+  { value: "21:30", label: "9:30 PM" },
+  { value: "22:00", label: "10:00 PM" },
+  { value: "22:30", label: "10:30 PM" },
+  { value: "23:00", label: "11:00 PM" },
+];
+
+const TONES = [
+  { value: "gentle",       label: "Gentle & Peaceful" },
+  { value: "traditional",  label: "Traditional" },
+  { value: "contemporary", label: "Contemporary" },
+  { value: "scripture",    label: "Scripture-based" },
+];
+
+type Plan = keyof typeof PLAN_CONFIG;
+
+export default function HomeClient() {
   const [plan, setPlan] = useState<Plan>("email");
-
-  const [form, setForm] = useState<FormState>({
-    firstName:    "",
-    email:        "",
-    phoneNumber:  "",
+  const [form, setForm] = useState({
+    firstName: "",
+    email: "",
+    phoneNumber: "",
     deliveryTime: "22:00",
-    timezone:     "America/New_York",
-    prayerFocus:  "peace",
-    tone:         "gentle",
-    smsConsent:   false,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York",
+    prayerFocus: "",
+    tone: "gentle",
+    smsConsent: false,
   });
-  const [loading,       setLoading]       = useState(false);
-  const [error,         setError]         = useState("");
-  const [showCustomize, setShowCustomize] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const scrollToSignup = () =>
-    signupRef.current?.scrollIntoView({ behavior: "smooth" });
-
-  const set = (field: keyof Omit<FormState, "smsConsent">) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((p) => ({ ...p, [field]: e.target.value }));
-
-  const selectPlan = (p: Plan) => {
-    if (p === "sms" && !smsPriceAvailable) return;
-    setPlan(p);
-    setError("");
-  };
+  const set = (k: string, v: string | boolean) =>
+    setForm((p) => ({ ...p, [k]: v }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,18 +87,18 @@ export default function HomeClient({ smsPriceAvailable = false }: { smsPriceAvai
     setError("");
     try {
       const res = await fetch("/api/create-checkout-session", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
+        body: JSON.stringify({
           plan,
-          firstName:    form.firstName,
-          email:        plan === "email" ? form.email       : "",
-          phoneNumber:  plan === "sms"   ? form.phoneNumber : "",
+          firstName: form.firstName,
+          email: plan === "email" ? form.email : "",
+          phoneNumber: plan === "sms" ? form.phoneNumber : "",
           deliveryTime: form.deliveryTime,
-          timezone:     form.timezone,
-          prayerFocus:  form.prayerFocus,
-          tone:         form.tone,
-          smsConsent:   form.smsConsent,
+          timezone: form.timezone,
+          prayerFocus: form.prayerFocus,
+          tone: form.tone,
+          smsConsent: form.smsConsent,
         }),
       });
       const data = await res.json();
@@ -161,988 +110,840 @@ export default function HomeClient({ smsPriceAvailable = false }: { smsPriceAvai
     }
   };
 
-  const cfg = PLAN_CONFIG[plan];
-
   return (
     <>
-      {/* ═══════════════════════════════════════ DARK HERO */}
-      <section className="hn-hero">
-        {/* Ambient gold glow behind the card */}
-        <div className="hn-hero__glow" aria-hidden="true" />
-
-        <div className="container hn-hero__inner">
-          <div className="hn-hero__grid">
-
-            {/* ── Left: copy ── */}
-            <div className="hn-hero__copy">
-              <p className="hn-hero__eyebrow fade-up d1">
-                <span className="hn-hero__eyebrow-rule" />
-                A prayer for every night
-                <span className="hn-hero__eyebrow-rule" />
-              </p>
-
-              <h1 className="hn-hero__h1 font-display fade-up d2">
-                End your day<br />
-                with{" "}<em className="hn-hero__em">peace.</em>
-              </h1>
-
-              <p className="hn-hero__sub fade-up d3">
-                Receive a personal prayer every night — written
-                for you, delivered at the bedtime you choose.
-              </p>
-
-              <p className="hn-hero__pull font-display fade-up d4">
-                Your first prayer can arrive tonight.
-              </p>
-
-              <div className="fade-up d5">
-                <span className="hn-hero__pill">
-                  7 nights free · No charge today · Cancel anytime
-                </span>
-              </div>
-
-              <div className="fade-up d6 hn-hero__cta-wrap">
-                <button
-                  type="button"
-                  onClick={scrollToSignup}
-                  className="btn-gold hn-hero__cta"
-                  style={{ border: "none", cursor: "pointer" }}
-                >
-                  Start Your Free 7-Day Trial
-                </button>
-              </div>
-
-              <div className="hn-hero__trust fade-up d7">
-                {TRUST_ITEMS.map(t => (
-                  <span key={t} className="hn-hero__trust-item">
-                    <span className="hn-hero__trust-check">✓</span>{t}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Right: prayer preview card ── */}
-            <div className="hn-hero__card fade-up d5">
-              <PrayerPreviewCard />
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════ SIGNUP */}
-      <section
-        ref={signupRef}
-        id="signup"
-        className="hn-signup"
-      >
-        <div className="container">
-
-          {/* Section header */}
-          <div className="hn-signup__header reveal">
-            <p className="hn-signup__eyebrow">Begin tonight</p>
-            <h2 className="hn-signup__h2 font-display">
-              Set up your nightly prayer
-            </h2>
-            <p className="hn-signup__sub">
-              Takes less than 30 seconds. Your first prayer arrives tonight — free.
-            </p>
-          </div>
-
-          {/* Panel */}
-          <div className="hn-panel reveal">
-            <form onSubmit={handleSubmit}>
-
-              {/* ── Plan tiles ── */}
-              <p className="hn-step-label">Choose how to receive your prayer</p>
-              <div className="hn-tiles">
-                {(["email", "sms"] as Plan[]).map(p => {
-                  const c          = PLAN_CONFIG[p];
-                  const isSelected = plan === p;
-                  const isDisabled = p === "sms" && !smsPriceAvailable;
-                  return (
-                    <div
-                      key={p}
-                      className={[
-                        "hn-tile",
-                        isSelected && !isDisabled ? "hn-tile--on"  : "",
-                        isDisabled                ? "hn-tile--off" : "",
-                      ].join(" ")}
-                      onClick={() => selectPlan(p)}
-                      role="radio"
-                      aria-checked={isSelected && !isDisabled}
-                      tabIndex={isDisabled ? -1 : 0}
-                      onKeyDown={e => (e.key === "Enter" || e.key === " ") && selectPlan(p)}
-                    >
-                      {/* Gold left accent bar — visible when selected */}
-                      <span className="hn-tile__accent" aria-hidden="true" />
-
-                      <div className="hn-tile__head">
-                        <span className="hn-tile__icon">{c.icon}</span>
-                        <div className="hn-tile__meta">
-                          <div className="hn-tile__name">{c.label}</div>
-                          <div className="hn-tile__price">
-                            {isDisabled
-                              ? <span className="hn-tile__soon">Coming soon</span>
-                              : <>{c.price}<span className="hn-tile__per">/mo</span></>
-                            }
-                          </div>
-                        </div>
-                        {isSelected && !isDisabled && (
-                          <div className="hn-tile__check">✓</div>
-                        )}
-                      </div>
-
-                      {!isDisabled && (
-                        <div className="hn-tile__trial">{c.trial}</div>
-                      )}
-
-                      <ul className="hn-tile__list">
-                        {c.bullets.map(b => (
-                          <li key={b}>
-                            <span className="hn-tile__dot">✓</span>{b}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="hn-rule" />
-
-              {/* ── Contact field (changes by plan) ── */}
-              {plan === "email" ? (
-                <div className="form-field">
-                  <label htmlFor="np-email" className="form-label">Email address</label>
-                  <input
-                    id="np-email"
-                    className="form-input"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={form.email}
-                    onChange={set("email")}
-                    required
-                    autoComplete="email"
-                  />
-                </div>
-              ) : (
-                <>
-                  <div className="form-field">
-                    <label htmlFor="np-phone" className="form-label">Mobile number</label>
-                    <input
-                      id="np-phone"
-                      className="form-input"
-                      type="tel"
-                      placeholder="+1 226 724 1954"
-                      value={form.phoneNumber}
-                      onChange={e => setForm(p => ({ ...p, phoneNumber: e.target.value }))}
-                      required
-                      autoComplete="tel"
-                    />
-                    <span className="hn-field-hint">
-                      Include country code — e.g. +1 for US/Canada
-                    </span>
-                  </div>
-                  <div className="hn-consent">
-                    <label className="hn-consent__label">
-                      <input
-                        type="checkbox"
-                        className="hn-consent__check"
-                        checked={form.smsConsent}
-                        onChange={e => setForm(p => ({ ...p, smsConsent: e.target.checked }))}
-                        required
-                      />
-                      <span>
-                        I agree to receive nightly prayer text messages from My Nightly Prayer.
-                        Message and data rates may apply. Reply STOP to opt out at any time.
-                      </span>
-                    </label>
-                  </div>
-                </>
-              )}
-
-              {/* ── Name + bedtime ── */}
-              <div className="form-grid" style={{ marginTop: 20 }}>
-                <div className="form-field">
-                  <label htmlFor="np-firstName" className="form-label">First name</label>
-                  <input
-                    id="np-firstName"
-                    className="form-input"
-                    type="text"
-                    placeholder="Grace"
-                    value={form.firstName}
-                    onChange={set("firstName")}
-                    required
-                    autoComplete="given-name"
-                  />
-                </div>
-                <div className="form-field">
-                  <label htmlFor="np-deliveryTime" className="form-label">Prayer bedtime</label>
-                  <select
-                    id="np-deliveryTime"
-                    className="form-input"
-                    value={form.deliveryTime}
-                    onChange={set("deliveryTime")}
-                  >
-                    {DELIVERY_TIMES.map(t => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* ── Customise toggle ── */}
-              <div className="hn-toggle-row">
-                <span className="hn-toggle-line" />
-                <button
-                  type="button"
-                  onClick={() => setShowCustomize(v => !v)}
-                  className="hn-toggle-btn"
-                >
-                  {showCustomize ? "Hide options" : "Customise prayer"}
-                  <svg
-                    width="10" height="6" viewBox="0 0 10 6" fill="none"
-                    style={{
-                      transition: "transform 0.25s ease",
-                      transform:  showCustomize ? "rotate(180deg)" : "rotate(0deg)",
-                    }}
-                  >
-                    <path d="M1 1l4 4 4-4" stroke="var(--gold)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <span className="hn-toggle-line" />
-              </div>
-
-              {/* ── Collapsible: timezone, focus, tone ── */}
-              <div
-                className="hn-customize"
-                style={{
-                  maxHeight:  showCustomize ? 500 : 0,
-                  opacity:    showCustomize ? 1 : 0,
-                  marginTop:  showCustomize ? 20 : 0,
-                }}
-              >
-                <div className="form-field" style={{ marginBottom: 18 }}>
-                  <label htmlFor="np-timezone" className="form-label">Timezone</label>
-                  <select
-                    id="np-timezone"
-                    className="form-input"
-                    value={form.timezone}
-                    onChange={set("timezone")}
-                  >
-                    {TIMEZONES.map(tz => (
-                      <option key={tz.value} value={tz.value}>{tz.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-grid">
-                  <div className="form-field">
-                    <label htmlFor="np-prayerFocus" className="form-label">Prayer focus</label>
-                    <select
-                      id="np-prayerFocus"
-                      className="form-input"
-                      value={form.prayerFocus}
-                      onChange={set("prayerFocus")}
-                    >
-                      {PRAYER_FOCUS.map(f => (
-                        <option key={f.value} value={f.value}>{f.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor="np-tone" className="form-label">Prayer tone</label>
-                    <select
-                      id="np-tone"
-                      className="form-input"
-                      value={form.tone}
-                      onChange={set("tone")}
-                    >
-                      {TONES.map(t => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Plan summary ── */}
-              <div className="hn-summary">
-                <div className="hn-summary__row">
-                  <span className="hn-summary__name">{cfg.label}</span>
-                  <span className="hn-summary__badge">{cfg.trial}</span>
-                </div>
-                <p className="hn-summary__price">Then {cfg.price}/month</p>
-                <p className="hn-summary__note">No charge today · Cancel anytime</p>
-              </div>
-
-              {/* ── CTA ── */}
-              <button
-                type="submit"
-                className="hn-cta"
-                disabled={loading}
-                style={{ opacity: loading ? 0.75 : 1, cursor: loading ? "default" : "pointer" }}
-              >
-                {loading ? "Opening checkout…" : `${cfg.ctaText} →`}
-              </button>
-
-              {/* ── Trust row ── */}
-              <div className="hn-trust-row">
-                {TRUST_ITEMS.map(t => (
-                  <span key={t} className="hn-trust-item">
-                    <span className="hn-trust-check">✓</span>{t}
-                  </span>
-                ))}
-              </div>
-
-              {/* ── Stripe note ── */}
-              <p className="hn-stripe-note">
-                <svg width="11" height="14" viewBox="0 0 11 14" fill="none" style={{ flexShrink: 0 }}>
-                  <rect x="1" y="5" width="9" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
-                  <path d="M3 5V3.5a2.5 2.5 0 015 0V5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                </svg>
-                Secure checkout powered by Stripe
-              </p>
-
-              {error && (
-                <p className="hn-error">{error}</p>
-              )}
-
-            </form>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════ STYLES */}
       <style>{`
+        html, body { background: #EEEEF6 !important; }
+        .stars { display: none !important; }
 
-        /* ═══════════════════════════════════
-           DARK HERO — "Nocturne"
-        ═══════════════════════════════════ */
+        /* ── page wrapper ── */
+        .np-page { background: #EEEEF6; min-height: 100vh; }
 
-        .hn-hero {
-          position:   relative;
-          background: linear-gradient(160deg, #09152A 0%, #0c1f3e 52%, #091525 100%);
-          padding:    130px 0 100px;
-          overflow:   hidden;
-          z-index:    1;
+        /* ── container ── */
+        .np-con {
+          max-width: 1160px;
+          margin: 0 auto;
+          padding: 0 48px;
         }
+        @media (max-width: 768px) { .np-con { padding: 0 20px; } }
 
-        /* Subtle star field — small bright dots */
-        .hn-hero::before {
-          content:          '';
-          position:         absolute;
-          inset:            0;
-          z-index:          0;
-          pointer-events:   none;
-          background-image:
-            radial-gradient(1.5px 1.5px at 10% 14%, rgba(255,252,245,0.58) 0%, transparent 100%),
-            radial-gradient(1px   1px   at 22%  7%, rgba(255,252,245,0.36) 0%, transparent 100%),
-            radial-gradient(2px   2px   at 37% 20%, rgba(201,165,92,0.62)  0%, transparent 100%),
-            radial-gradient(1px   1px   at 53% 11%, rgba(255,252,245,0.40) 0%, transparent 100%),
-            radial-gradient(1px   1px   at 66% 17%, rgba(255,252,245,0.28) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 80%  6%, rgba(201,165,92,0.50)  0%, transparent 100%),
-            radial-gradient(1px   1px   at 91% 26%, rgba(255,252,245,0.38) 0%, transparent 100%),
-            radial-gradient(1px   1px   at  6% 40%, rgba(255,252,245,0.22) 0%, transparent 100%),
-            radial-gradient(1px   1px   at 17% 53%, rgba(201,165,92,0.30)  0%, transparent 100%),
-            radial-gradient(1px   1px   at 46% 46%, rgba(255,252,245,0.16) 0%, transparent 100%),
-            radial-gradient(1px   1px   at 62% 59%, rgba(255,252,245,0.12) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 84% 44%, rgba(201,165,92,0.26)  0%, transparent 100%),
-            radial-gradient(1px   1px   at 95% 52%, rgba(255,252,245,0.18) 0%, transparent 100%),
-            radial-gradient(1px   1px   at 29% 68%, rgba(255,252,245,0.10) 0%, transparent 100%),
-            radial-gradient(1px   1px   at 55% 73%, rgba(201,165,92,0.17)  0%, transparent 100%),
-            radial-gradient(1px   1px   at 74% 71%, rgba(255,252,245,0.12) 0%, transparent 100%);
-          animation: hnStarGlow 20s ease-in-out infinite alternate;
+        /* ──────────────────────────────────────────
+           HERO
+        ────────────────────────────────────────── */
+        .np-hero {
+          padding: 96px 0 56px;
         }
+        @media (max-width: 900px) { .np-hero { padding: 80px 0 40px; } }
 
-        @keyframes hnStarGlow {
-          0%   { opacity: 0.5; }
-          100% { opacity: 1;   }
-        }
-
-        /* Bottom cream fade — blends hero into signup */
-        .hn-hero::after {
-          content:        '';
-          position:       absolute;
-          bottom:         0;
-          left:           0;
-          right:          0;
-          height:         120px;
-          background:     linear-gradient(to bottom, rgba(247,241,232,0) 0%, rgba(247,241,232,1) 100%);
-          pointer-events: none;
-          z-index:        1;
-        }
-
-        /* Warm gold ambient glow (top-right, behind card) */
-        .hn-hero__glow {
-          position:       absolute;
-          top:            -20%;
-          right:          -8%;
-          width:          65%;
-          height:         90%;
-          background:     radial-gradient(ellipse at 65% 25%, rgba(201,165,92,0.08) 0%, transparent 62%);
-          pointer-events: none;
-          z-index:        0;
-        }
-
-        .hn-hero__inner {
-          position: relative;
-          z-index:  2;
-        }
-
-        .hn-hero__grid {
-          display:               grid;
+        .np-hero-grid {
+          display: grid;
           grid-template-columns: 1fr 1fr;
-          gap:                   72px;
-          align-items:           center;
+          gap: 56px;
+          align-items: center;
+        }
+        @media (max-width: 900px) {
+          .np-hero-grid { grid-template-columns: 1fr; gap: 40px; }
         }
 
-        @media (max-width: 840px) {
-          .hn-hero { padding: 110px 0 90px; }
-          .hn-hero__grid {
-            grid-template-columns: 1fr;
-            gap: 56px;
-          }
-          .hn-hero__copy { text-align: center; }
-          .hn-hero__eyebrow { justify-content: center; }
-          .hn-hero__trust { justify-content: center; }
-          .hn-hero__card { display: flex; justify-content: center; }
-          .hn-hero__cta-wrap { display: flex; justify-content: center; }
+        /* badge */
+        .np-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          border: 1px solid rgba(108,142,245,0.32);
+          border-radius: 100px;
+          padding: 5px 14px;
+          font-size: 0.68rem;
+          font-weight: 500;
+          letter-spacing: 0.1em;
+          color: #5573D4;
+          margin-bottom: 20px;
+          background: rgba(108,142,245,0.07);
         }
 
-        /* ── Eyebrow ── */
-        .hn-hero__eyebrow {
-          display:        flex;
-          align-items:    center;
-          gap:            12px;
-          font-size:      0.58rem;
-          font-weight:    400;
-          letter-spacing: 0.24em;
-          text-transform: uppercase;
-          color:          rgba(201,165,92,0.72);
-          margin-bottom:  28px;
+        /* headline */
+        .np-h1 {
+          font-family: var(--font-jost), 'Jost', sans-serif;
+          font-size: clamp(2.6rem, 5vw, 3.9rem);
+          font-weight: 700;
+          line-height: 1.1;
+          color: #111827;
+          letter-spacing: -0.025em;
+          margin-bottom: 18px;
         }
-        .hn-hero__eyebrow-rule {
-          display:    inline-block;
-          width:      22px;
-          height:     1px;
-          background: rgba(201,165,92,0.28);
-          flex-shrink: 0;
-        }
-
-        /* ── Headline ── */
-        .hn-hero__h1 {
-          font-size:      clamp(2.6rem, 6.5vw, 4.4rem);
-          font-weight:    400;
-          font-style:     italic;
-          line-height:    1.11;
-          letter-spacing: -0.02em;
-          color:          rgba(255,252,245,0.96);
-          margin-bottom:  26px;
-        }
-        .hn-hero__em {
-          font-style:              italic;
-          background:              linear-gradient(135deg, #DABC6E 0%, #C6A15B 55%, #a87c36 100%);
+        .np-h1-accent {
+          font-family: var(--font-display), 'Playfair Display', serif;
+          font-style: italic;
+          font-weight: 400;
+          background: linear-gradient(135deg, #6C8EF5 0%, #9B7FEA 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
-          background-clip:         text;
-        }
-        @media (max-width: 400px) {
-          .hn-hero__h1 { font-size: 2.4rem; }
+          background-clip: text;
         }
 
-        /* ── Body copy ── */
-        .hn-hero__sub {
-          font-size:    1rem;
-          font-weight:  300;
-          line-height:  1.84;
-          color:        rgba(255,252,245,0.46);
-          max-width:    410px;
-          margin-bottom: 16px;
-        }
-        @media (max-width: 840px) {
-          .hn-hero__sub { margin: 0 auto 16px; }
-        }
-
-        .hn-hero__pull {
-          font-size:    1rem;
-          font-style:   italic;
-          color:        rgba(255,252,245,0.58);
-          margin-bottom: 28px;
-        }
-
-        /* ── Trial pill ── */
-        .hn-hero__pill {
-          display:        inline-flex;
-          align-items:    center;
-          padding:        8px 18px;
-          border:         1px solid rgba(201,165,92,0.2);
-          border-radius:  100px;
-          font-size:      0.6rem;
-          font-weight:    400;
-          letter-spacing: 0.07em;
-          color:          rgba(201,165,92,0.62);
-          margin-bottom:  24px;
-          white-space:    nowrap;
-        }
-
-        /* ── Hero CTA ── */
-        .hn-hero__cta {
-          font-size:      0.82rem !important;
-          font-weight:    600 !important;
-          padding:        18px 46px !important;
-          letter-spacing: 0.12em !important;
-          border-radius:  5px !important;
-          box-shadow:     0 8px 44px rgba(198,161,91,0.42) !important;
-          background:     linear-gradient(135deg, #C9A55C 0%, #A87D3A 100%) !important;
-          margin-bottom:  26px;
-        }
-        .hn-hero__cta:hover {
-          box-shadow: 0 12px 52px rgba(198,161,91,0.58) !important;
-          transform:  translateY(-2px) !important;
-        }
-        @media (max-width: 640px) {
-          .hn-hero__cta { width: 100% !important; padding: 19px 32px !important; }
-        }
-
-        /* ── Trust items (hero) ── */
-        .hn-hero__trust {
-          display:   flex;
-          flex-wrap: wrap;
-          gap:       6px 22px;
-        }
-        .hn-hero__trust-item {
-          display:     inline-flex;
-          align-items: center;
-          gap:         6px;
-          font-size:   0.7rem;
+        /* sub */
+        .np-sub {
+          font-size: 0.98rem;
           font-weight: 300;
-          color:       rgba(255,252,245,0.32);
-        }
-        .hn-hero__trust-check {
-          color:       rgba(201,165,92,0.52);
-          font-weight: 600;
-          font-size:   0.64rem;
+          color: #6B7280;
+          line-height: 1.7;
+          max-width: 400px;
+          margin-bottom: 36px;
         }
 
-        /* ── Card ── */
-        .hn-hero__card {
-          filter: drop-shadow(0 24px 72px rgba(201,165,92,0.09))
-                  drop-shadow(0 8px 24px rgba(9,21,42,0.55));
-        }
-
-        /* ═══════════════════════════════════
-           SIGNUP ZONE — warm cream
-        ═══════════════════════════════════ */
-
-        .hn-signup {
-          background: #F7F1E8;
-          padding:    72px 0 104px;
-          position:   relative;
-          z-index:    1;
-        }
-
-        .hn-signup__header {
-          text-align:    center;
-          margin-bottom: 48px;
-        }
-        .hn-signup__eyebrow {
-          font-size:      0.58rem;
-          font-weight:    400;
-          letter-spacing: 0.26em;
-          text-transform: uppercase;
-          color:          var(--gold);
-          margin-bottom:  16px;
-        }
-        .hn-signup__h2 {
-          font-size:    clamp(1.9rem, 4vw, 2.8rem);
-          font-weight:  400;
-          font-style:   italic;
-          color:        var(--navy-text);
-          line-height:  1.2;
-          margin-bottom: 12px;
-        }
-        .hn-signup__sub {
-          font-size:  0.88rem;
-          font-weight: 300;
-          color:      var(--secondary-text);
-          line-height: 1.72;
-          max-width:  360px;
-          margin:     0 auto;
-        }
-
-        /* ═══════════════════════════════════
-           SIGNUP PANEL
-        ═══════════════════════════════════ */
-
-        .hn-panel {
-          background:      rgba(255,255,255,0.9);
-          border:          1px solid rgba(16,42,67,0.07);
-          border-radius:   20px;
-          box-shadow:
-            0 1px 0 rgba(255,255,255,0.95) inset,
-            0 12px 64px rgba(16,42,67,0.08),
-            0 2px 10px rgba(16,42,67,0.04);
-          max-width:       780px;
-          margin:          0 auto;
-          padding:         52px 60px 56px;
-          backdrop-filter: blur(12px);
-        }
-        @media (max-width: 720px) {
-          .hn-panel { padding: 38px 26px 44px; border-radius: 16px; }
-        }
-
-        /* ═══════════════════════════════════
-           PLAN TILES
-        ═══════════════════════════════════ */
-
-        .hn-step-label {
-          font-size:      0.57rem;
-          font-weight:    400;
-          letter-spacing: 0.2em;
-          text-transform: uppercase;
-          color:          rgba(16,42,67,0.34);
-          margin-bottom:  14px;
-        }
-
-        .hn-tiles {
-          display:               grid;
+        /* features grid */
+        .np-features {
+          display: grid;
           grid-template-columns: 1fr 1fr;
-          gap:                   12px;
-          margin-bottom:         26px;
+          gap: 18px 28px;
         }
-        @media (max-width: 520px) {
-          .hn-tiles { grid-template-columns: 1fr; }
-        }
-
-        /* Base tile */
-        .hn-tile {
-          position:      relative;
-          background:    #ffffff;
-          border:        1.5px solid rgba(16,42,67,0.08);
-          border-radius: 12px;
-          padding:       18px 16px 16px 20px;
-          cursor:        pointer;
-          transition:    border-color 0.2s, box-shadow 0.2s, background 0.2s;
-          user-select:   none;
-          outline:       none;
-          overflow:      hidden;
-        }
-        /* Gold left accent bar */
-        .hn-tile__accent {
-          position:   absolute;
-          left:       0;
-          top:        0;
-          bottom:     0;
-          width:      3px;
-          background: linear-gradient(to bottom, #D8B96C, #a87c36);
-          opacity:    0;
-          transition: opacity 0.22s;
-          pointer-events: none;
-        }
-        .hn-tile:hover:not(.hn-tile--off):not(.hn-tile--on) {
-          border-color: rgba(198,161,91,0.26);
-        }
-        .hn-tile--on {
-          border-color: rgba(198,161,91,0.26);
-          background:   #fffdf8;
-          box-shadow:   0 3px 18px rgba(198,161,91,0.09);
-        }
-        .hn-tile--on .hn-tile__accent { opacity: 1; }
-        .hn-tile--off {
-          opacity: 0.44;
-          cursor:  not-allowed;
-        }
-        .hn-tile:focus-visible {
-          box-shadow: 0 0 0 3px rgba(198,161,91,0.28);
-        }
-
-        .hn-tile__head {
-          display:       flex;
-          align-items:   flex-start;
-          gap:           10px;
-          margin-bottom: 10px;
-        }
-        .hn-tile__icon {
-          font-size:   1.1rem;
-          line-height: 1;
-          margin-top:  1px;
-          flex-shrink: 0;
-        }
-        .hn-tile__meta { flex: 1; min-width: 0; }
-        .hn-tile__name {
-          font-size:     0.82rem;
-          font-weight:   500;
-          color:         var(--navy-text);
-          margin-bottom: 3px;
-        }
-        .hn-tile__price {
-          font-size:   1.15rem;
-          font-weight: 600;
-          color:       var(--navy-text);
-          line-height: 1;
-        }
-        .hn-tile__per {
-          font-size:   0.64rem;
-          font-weight: 300;
-          color:       var(--secondary-text);
-        }
-        .hn-tile__soon {
-          font-size:   0.75rem;
-          font-weight: 300;
-          color:       var(--secondary-text);
-        }
-        .hn-tile__check {
-          width:           20px;
-          height:          20px;
-          flex-shrink:     0;
-          background:      linear-gradient(135deg, #C9A55C, #a87c36);
-          border-radius:   50%;
-          display:         flex;
-          align-items:     center;
-          justify-content: center;
-          font-size:       0.58rem;
-          font-weight:     700;
-          color:           #102A43;
-          box-shadow:      0 2px 8px rgba(198,161,91,0.4);
-        }
-        .hn-tile__trial {
-          display:        inline-flex;
-          padding:        2px 9px;
-          background:     rgba(198,161,91,0.07);
-          border:         1px solid rgba(198,161,91,0.2);
-          border-radius:  20px;
-          font-size:      0.55rem;
-          font-weight:    500;
-          color:          var(--gold);
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          margin-bottom:  11px;
-        }
-        .hn-tile__list {
-          list-style:     none;
-          padding:        0;
-          margin:         0;
-          display:        flex;
+        .np-feat {
+          display: flex;
           flex-direction: column;
-          gap:            5px;
+          gap: 6px;
         }
-        .hn-tile__list li {
-          display:     flex;
-          align-items: flex-start;
-          gap:         7px;
-          font-size:   0.72rem;
-          font-weight: 300;
-          color:       var(--secondary-text);
-          line-height: 1.44;
+        .np-feat-icon {
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          background: rgba(108,142,245,0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 2px;
+          color: #6C8EF5;
+          font-size: 0.9rem;
         }
-        .hn-tile__dot {
-          color:       var(--gold);
-          font-size:   0.6rem;
-          font-weight: 600;
-          margin-top:  2px;
-          flex-shrink: 0;
+        .np-feat-label {
+          font-size: 0.8rem;
+          font-weight: 400;
+          color: #6B7280;
+          line-height: 1.4;
         }
 
-        /* ═══════════════════════════════════
-           FORM ELEMENTS
-        ═══════════════════════════════════ */
+        /* ──────────────────────────────────────────
+           DARK PRAYER CARD
+        ────────────────────────────────────────── */
+        .np-dark-card {
+          background: linear-gradient(155deg, #0E1D4A 0%, #060D28 100%);
+          border-radius: 22px;
+          padding: 28px 28px 0;
+          position: relative;
+          overflow: hidden;
+          box-shadow:
+            0 32px 80px rgba(6,13,40,0.36),
+            0 0 0 1px rgba(108,142,245,0.14);
+        }
 
-        .hn-rule {
-          height:        1px;
-          background:    linear-gradient(to right, transparent, rgba(198,161,91,0.16), transparent);
+        .np-card-hdr {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
           margin-bottom: 22px;
         }
-
-        .hn-field-hint {
+        .np-card-hdr-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .np-card-logo {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #6C8EF5, #9B7FEA);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          color: #fff;
+          flex-shrink: 0;
+        }
+        .np-card-brand {
           font-size: 0.6rem;
-          color:     rgba(16,42,67,0.35);
+          font-weight: 700;
+          letter-spacing: 0.14em;
+          color: rgba(255,255,255,0.88);
+        }
+        .np-card-meta {
+          font-size: 0.7rem;
+          color: rgba(255,255,255,0.42);
           margin-top: 2px;
         }
-
-        /* SMS consent */
-        .hn-consent {
-          margin-top:    12px;
-          padding:       13px 15px;
-          background:    rgba(198,161,91,0.04);
-          border:        1px solid rgba(198,161,91,0.14);
-          border-radius: 8px;
-        }
-        .hn-consent__label {
-          display:     flex;
-          align-items: flex-start;
-          gap:         10px;
-          cursor:      pointer;
-          font-size:   0.72rem;
-          font-weight: 300;
-          color:       var(--secondary-text);
-          line-height: 1.55;
-        }
-        .hn-consent__check {
-          margin-top:   2px;
-          flex-shrink:  0;
-          width:        14px;
-          height:       14px;
-          accent-color: var(--gold);
-          cursor:       pointer;
+        .np-card-tonight {
+          font-size: 0.72rem;
+          color: rgba(255,255,255,0.42);
         }
 
-        /* Customise toggle */
-        .hn-toggle-row {
-          display:     flex;
-          align-items: center;
-          gap:         14px;
-          margin-top:  22px;
-        }
-        .hn-toggle-line {
-          flex:       1;
-          height:     1px;
-          background: rgba(16,42,67,0.06);
-        }
-        .hn-toggle-btn {
-          background:     transparent;
-          border:         1px solid rgba(198,161,91,0.26);
-          border-radius:  100px;
-          cursor:         pointer;
-          font-size:      0.6rem;
-          font-weight:    400;
-          color:          var(--secondary-text);
-          letter-spacing: 0.09em;
-          text-transform: uppercase;
-          display:        inline-flex;
-          align-items:    center;
-          gap:            8px;
-          padding:        8px 18px;
-          transition:     background 0.18s;
-          white-space:    nowrap;
-          outline:        none;
-        }
-        .hn-toggle-btn:hover { background: rgba(198,161,91,0.05); }
-
-        .hn-customize {
-          overflow:   hidden;
-          transition: max-height 0.35s ease, opacity 0.25s ease;
-        }
-
-        /* Plan summary */
-        .hn-summary {
-          margin:        26px 0 18px;
-          padding:       18px 22px;
-          background:    rgba(198,161,91,0.04);
-          border:        1px solid rgba(198,161,91,0.13);
-          border-radius: 10px;
-          text-align:    center;
-        }
-        .hn-summary__row {
-          display:         flex;
-          align-items:     center;
-          justify-content: center;
-          gap:             10px;
-          flex-wrap:       wrap;
-          margin-bottom:   5px;
-        }
-        .hn-summary__name {
-          font-size:   0.92rem;
+        .np-card-title {
+          font-family: var(--font-display), 'Playfair Display', serif;
+          font-size: 1.45rem;
           font-weight: 400;
-          color:       var(--navy-text);
+          color: rgba(255,255,255,0.95);
+          margin-bottom: 10px;
+          position: relative;
+          z-index: 1;
         }
-        .hn-summary__badge {
-          display:        inline-flex;
-          padding:        2px 10px;
-          background:     rgba(198,161,91,0.08);
-          border:         1px solid rgba(198,161,91,0.2);
-          border-radius:  20px;
-          font-size:      0.54rem;
-          font-weight:    500;
-          color:          var(--gold);
-          letter-spacing: 0.07em;
-          text-transform: uppercase;
+        .np-card-rule {
+          width: 44px;
+          height: 1px;
+          background: rgba(108,142,245,0.5);
+          margin-bottom: 14px;
         }
-        .hn-summary__price {
-          font-size:     0.78rem;
-          font-weight:   300;
-          color:         var(--secondary-text);
-          margin-bottom: 3px;
+        .np-card-prayer {
+          font-family: var(--font-display), 'Playfair Display', serif;
+          font-style: italic;
+          font-size: 0.94rem;
+          color: rgba(255,255,255,0.78);
+          line-height: 1.78;
+          margin-bottom: 20px;
+          position: relative;
+          z-index: 1;
         }
-        .hn-summary__note {
-          font-size:   0.63rem;
-          font-weight: 300;
-          color:       rgba(16,42,67,0.38);
+        .np-card-tags {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 0;
+          position: relative;
+          z-index: 1;
+          padding-bottom: 120px;
         }
-
-        /* CTA button */
-        .hn-cta {
-          display:        block;
-          width:          100%;
-          padding:        20px 40px;
-          background:     linear-gradient(135deg, #C9A55C 0%, #A87D3A 100%);
-          color:          #102A43;
-          border:         none;
-          border-radius:  7px;
-          font-family:    var(--font-jost), sans-serif;
-          font-size:      0.86rem;
-          font-weight:    600;
-          letter-spacing: 0.10em;
-          text-transform: uppercase;
-          transition:     box-shadow 0.2s, transform 0.15s;
-          box-shadow:     0 4px 28px rgba(198,161,91,0.34);
-        }
-        .hn-cta:hover {
-          box-shadow: 0 8px 42px rgba(198,161,91,0.52);
-          transform:  translateY(-1px);
-        }
-        .hn-cta:active {
-          transform:  translateY(0);
-          box-shadow: 0 2px 10px rgba(198,161,91,0.22);
-        }
-
-        /* Trust row (below CTA) */
-        .hn-trust-row {
-          display:         flex;
-          flex-wrap:       wrap;
-          justify-content: center;
-          gap:             8px 20px;
-          margin-top:      16px;
-          margin-bottom:   4px;
-        }
-        .hn-trust-item {
-          display:     inline-flex;
-          align-items: center;
-          gap:         5px;
-          font-size:   0.7rem;
-          font-weight: 300;
-          color:       rgba(16,42,67,0.42);
-        }
-        .hn-trust-check {
-          color:       var(--gold);
+        .np-card-tag {
+          font-size: 0.6rem;
           font-weight: 600;
-          font-size:   0.68rem;
+          letter-spacing: 0.1em;
+          color: rgba(255,255,255,0.55);
+          border: 1px solid rgba(255,255,255,0.16);
+          border-radius: 100px;
+          padding: 4px 10px;
         }
 
-        /* Stripe note */
-        .hn-stripe-note {
-          display:         flex;
-          align-items:     center;
+        /* aurora glow at card bottom */
+        .np-card-glow {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 150px;
+          background: radial-gradient(ellipse 100% 80% at 50% 100%,
+            rgba(80,120,255,0.65) 0%,
+            rgba(108,142,245,0.4) 35%,
+            transparent 80%);
+          pointer-events: none;
+        }
+        .np-card-star-br {
+          position: absolute;
+          bottom: 18px;
+          right: 22px;
+          font-size: 1.1rem;
+          color: rgba(108,142,245,0.65);
+          z-index: 2;
+        }
+
+        /* ──────────────────────────────────────────
+           SIGNUP SECTION
+        ────────────────────────────────────────── */
+        .np-signup { padding: 0 0 80px; }
+
+        .np-signup-box {
+          background: #fff;
+          border-radius: 24px;
+          padding: 44px 48px 48px;
+          box-shadow:
+            0 4px 32px rgba(108,142,245,0.07),
+            0 1px 4px rgba(0,0,0,0.04);
+        }
+        @media (max-width: 768px) {
+          .np-signup-box { padding: 28px 20px 32px; border-radius: 18px; }
+        }
+
+        .np-signup-hdr {
+          text-align: center;
+          margin-bottom: 36px;
+        }
+        .np-signup-hdr h2 {
+          font-family: var(--font-jost), sans-serif;
+          font-size: 1.45rem;
+          font-weight: 600;
+          color: #111827;
+          margin-bottom: 4px;
+        }
+        .np-signup-hdr p {
+          font-size: 0.86rem;
+          color: #9CA3AF;
+        }
+        .np-blue {
+          background: linear-gradient(135deg, #6C8EF5 0%, #9B7FEA 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .np-signup-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 36px;
+          align-items: start;
+        }
+        @media (max-width: 860px) {
+          .np-signup-grid { grid-template-columns: 1fr; gap: 28px; }
+        }
+
+        /* plan cards */
+        .np-plans {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        @media (max-width: 480px) {
+          .np-plans { grid-template-columns: 1fr; }
+        }
+
+        .np-plan {
+          background: #fff;
+          border: 1.5px solid #E5E7EB;
+          border-radius: 14px;
+          padding: 18px;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.16s ease;
+          position: relative;
+          width: 100%;
+        }
+        .np-plan:hover {
+          border-color: rgba(108,142,245,0.5);
+          background: rgba(108,142,245,0.02);
+        }
+        .np-plan.on {
+          border-color: #6C8EF5;
+          box-shadow: 0 0 0 3px rgba(108,142,245,0.1);
+        }
+        .np-plan-chk {
+          position: absolute;
+          top: 12px; right: 12px;
+          width: 20px; height: 20px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #6C8EF5, #9B7FEA);
+          color: #fff;
+          font-size: 0.6rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
           justify-content: center;
-          gap:             6px;
-          margin-top:      10px;
-          font-size:       0.62rem;
-          font-weight:     300;
-          color:           rgba(16,42,67,0.3);
-          letter-spacing:  0.03em;
+        }
+        .np-plan-ico {
+          width: 40px; height: 40px;
+          border-radius: 11px;
+          background: rgba(108,142,245,0.1);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1rem;
+          margin-bottom: 10px;
+          color: #6C8EF5;
+        }
+        .np-plan-name {
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #111827;
+          margin-bottom: 2px;
+        }
+        .np-plan-price {
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: #111827;
+          margin-bottom: 8px;
+        }
+        .np-plan-price span {
+          font-size: 0.72rem;
+          font-weight: 400;
+          color: #9CA3AF;
+        }
+        .np-plan-trial {
+          display: inline-block;
+          font-size: 0.57rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: #6C8EF5;
+          background: rgba(108,142,245,0.1);
+          border: 1px solid rgba(108,142,245,0.22);
+          border-radius: 4px;
+          padding: 2px 6px;
+          margin-bottom: 10px;
+        }
+        .np-plan-list {
+          list-style: none;
+          padding: 0; margin: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .np-plan-list li {
+          display: flex;
+          align-items: flex-start;
+          gap: 6px;
+          font-size: 0.74rem;
+          color: #6B7280;
+          line-height: 1.4;
+        }
+        .np-li-chk {
+          color: #6C8EF5;
+          font-size: 0.62rem;
+          margin-top: 1px;
+          flex-shrink: 0;
         }
 
-        /* Error */
-        .hn-error {
-          margin-top:  14px;
-          text-align:  center;
-          font-size:   0.82rem;
-          color:       #c05050;
-          font-weight: 300;
+        /* form */
+        .np-form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
         }
 
+        .np-field { display: flex; flex-direction: column; gap: 5px; }
+
+        .np-lbl {
+          font-size: 0.6rem;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          color: #9CA3AF;
+        }
+        .np-lbl-opt { color: #D1D5DB; font-weight: 400; }
+
+        .np-iw { position: relative; }
+        .np-ii {
+          position: absolute;
+          left: 13px; top: 50%;
+          transform: translateY(-50%);
+          font-size: 0.82rem;
+          color: #C4C9D8;
+          pointer-events: none;
+          display: flex;
+          align-items: center;
+          line-height: 1;
+        }
+
+        .np-input {
+          width: 100%;
+          background: #F9FAFB;
+          border: 1.5px solid #E5E7EB;
+          border-radius: 10px;
+          color: #111827;
+          font-family: var(--font-jost), 'Jost', sans-serif;
+          font-size: 0.88rem;
+          font-weight: 400;
+          padding: 13px 14px;
+          outline: none;
+          transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+        .np-input.has-icon { padding-left: 38px; }
+        .np-input:focus {
+          border-color: #6C8EF5;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(108,142,245,0.1);
+        }
+        .np-input::placeholder { color: #D1D5DB; }
+        .np-input option { background: #fff; color: #111827; }
+        select.np-input {
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23C4C9D8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 13px center;
+          padding-right: 34px;
+          cursor: pointer;
+        }
+        select.np-input.has-icon { padding-left: 38px; }
+
+        .np-row2 {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        @media (max-width: 480px) { .np-row2 { grid-template-columns: 1fr; } }
+
+        /* consent */
+        .np-consent {
+          display: flex;
+          align-items: flex-start;
+          gap: 9px;
+          padding: 12px;
+          background: rgba(108,142,245,0.05);
+          border: 1px solid rgba(108,142,245,0.14);
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 0.74rem;
+          color: #6B7280;
+          line-height: 1.5;
+        }
+        .np-consent input {
+          margin-top: 1px;
+          accent-color: #6C8EF5;
+          flex-shrink: 0;
+          cursor: pointer;
+        }
+
+        /* CTA */
+        .np-cta {
+          width: 100%;
+          padding: 16px 20px;
+          background: linear-gradient(135deg, #6C8EF5 0%, #9B7FEA 100%);
+          color: #fff;
+          font-family: var(--font-jost), sans-serif;
+          font-size: 0.8rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: opacity 0.18s, transform 0.18s, box-shadow 0.18s;
+          box-shadow: 0 6px 28px rgba(108,142,245,0.4);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .np-cta:hover:not(:disabled) {
+          opacity: 0.92;
+          transform: translateY(-1px);
+          box-shadow: 0 10px 36px rgba(108,142,245,0.5);
+        }
+        .np-cta:disabled { opacity: 0.65; cursor: not-allowed; }
+        .np-cta-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          justify-content: center;
+          flex: 1;
+        }
+
+        /* error */
+        .np-err {
+          padding: 11px 13px;
+          background: rgba(239,68,68,0.07);
+          border: 1px solid rgba(239,68,68,0.2);
+          border-radius: 8px;
+          font-size: 0.78rem;
+          color: #DC2626;
+        }
+
+        /* trust */
+        .np-trust {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px 16px;
+          justify-content: center;
+        }
+        .np-trust-it {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.68rem;
+          color: #9CA3AF;
+        }
+        .np-trust-it svg { opacity: 0.6; }
+        .np-trust-stripe {
+          text-align: center;
+          font-size: 0.66rem;
+          color: #C4C9D8;
+        }
+
+        /* enter animations */
+        .np-hero-left > * { animation: npUp 0.65s ease both; }
+        .np-hero-left > *:nth-child(1) { animation-delay: 0.04s; }
+        .np-hero-left > *:nth-child(2) { animation-delay: 0.12s; }
+        .np-hero-left > *:nth-child(3) { animation-delay: 0.20s; }
+        .np-hero-left > *:nth-child(4) { animation-delay: 0.28s; }
+        .np-dark-card   { animation: npUp 0.65s 0.14s ease both; }
+        .np-signup-box  { animation: npUp 0.65s 0.28s ease both; }
+
+        @keyframes npUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
+
+      <div className="np-page">
+
+        {/* ── HERO ─────────────────────────────────────────────── */}
+        <section className="np-hero">
+          <div className="np-con">
+            <div className="np-hero-grid">
+
+              {/* left: copy */}
+              <div className="np-hero-left">
+                <div className="np-badge">+ A PRAYER FOR EVERY NIGHT</div>
+
+                <h1 className="np-h1">
+                  End your day with{" "}
+                  <em className="np-h1-accent">peace.</em>
+                </h1>
+
+                <p className="np-sub">
+                  Receive a personal prayer every night — written for you and
+                  delivered at the bedtime you choose.
+                </p>
+
+                <div className="np-features">
+                  {([
+                    { icon: "✉", label: "Personal &\nmeaningful" },
+                    { icon: "🌙", label: "Arrives at your\nbedtime" },
+                    { icon: "✓",  label: "Private &\nsecure" },
+                    { icon: "♡", label: "Peace for your\nmind & heart" },
+                  ] as const).map((f) => (
+                    <div key={f.label} className="np-feat">
+                      <div className="np-feat-icon">{f.icon}</div>
+                      <span className="np-feat-label">{f.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* right: dark prayer card */}
+              <div className="np-dark-card">
+                <div className="np-card-hdr">
+                  <div className="np-card-hdr-left">
+                    <div className="np-card-logo">✦</div>
+                    <div>
+                      <div className="np-card-brand">NIGHTLY PRAYER</div>
+                      <div className="np-card-meta">Delivered to you • 9:30 PM</div>
+                    </div>
+                  </div>
+                  <span className="np-card-tonight">Tonight</span>
+                </div>
+
+                <h2 className="np-card-title">Tonight&apos;s Prayer</h2>
+                <div className="np-card-rule" />
+
+                <p className="np-card-prayer">
+                  &ldquo;Lord, quiet my mind tonight. Remove the weight I carried
+                  today, protect my heart, and help me rest in peace. Let tomorrow
+                  bring clarity, strength, and blessings. Amen.&rdquo;
+                </p>
+
+                <div className="np-card-tags">
+                  {["PEACE", "PROTECTION", "HOPE"].map((t) => (
+                    <span key={t} className="np-card-tag">{t}</span>
+                  ))}
+                </div>
+
+                <div className="np-card-glow" />
+                <div className="np-card-star-br">✦</div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        {/* ── SIGNUP ───────────────────────────────────────────── */}
+        <section className="np-signup">
+          <div className="np-con">
+            <div className="np-signup-box">
+
+              <div className="np-signup-hdr">
+                <h2>
+                  Start your{" "}
+                  <span className="np-blue">7-night free trial</span>
+                </h2>
+                <p>No charge today. Cancel anytime.</p>
+              </div>
+
+              <div className="np-signup-grid">
+
+                {/* plan cards */}
+                <div className="np-plans">
+                  {(["email", "sms"] as Plan[]).map((p) => {
+                    const c = PLAN_CONFIG[p];
+                    const on = plan === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`np-plan${on ? " on" : ""}`}
+                        onClick={() => setPlan(p)}
+                      >
+                        {on && <div className="np-plan-chk">✓</div>}
+                        <div className="np-plan-ico">
+                          {p === "email" ? "✉" : "💬"}
+                        </div>
+                        <div className="np-plan-name">{c.label}</div>
+                        <div className="np-plan-price">
+                          {c.price} <span>/ month</span>
+                        </div>
+                        <div className="np-plan-trial">7 NIGHTS FREE</div>
+                        <ul className="np-plan-list">
+                          {c.bullets.map((b) => (
+                            <li key={b}>
+                              <span className="np-li-chk">✓</span>
+                              {b}
+                            </li>
+                          ))}
+                        </ul>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* form */}
+                <form className="np-form" onSubmit={handleSubmit} noValidate>
+
+                  {/* email / phone */}
+                  <div className="np-field">
+                    <label className="np-lbl">
+                      {plan === "email" ? "EMAIL ADDRESS" : "MOBILE NUMBER"}
+                    </label>
+                    <div className="np-iw">
+                      <span className="np-ii">
+                        {plan === "email" ? "✉" : "📱"}
+                      </span>
+                      {plan === "email" ? (
+                        <input
+                          className="np-input has-icon"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={form.email}
+                          onChange={(e) => set("email", e.target.value)}
+                          required
+                          autoComplete="email"
+                        />
+                      ) : (
+                        <input
+                          className="np-input has-icon"
+                          type="tel"
+                          placeholder="+1 (555) 000-0000"
+                          value={form.phoneNumber}
+                          onChange={(e) => set("phoneNumber", e.target.value)}
+                          required
+                          autoComplete="tel"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* name + bedtime */}
+                  <div className="np-row2">
+                    <div className="np-field">
+                      <label className="np-lbl">FIRST NAME</label>
+                      <div className="np-iw">
+                        <span className="np-ii" style={{ fontSize: "0.72rem" }}>👤</span>
+                        <input
+                          className="np-input has-icon"
+                          type="text"
+                          placeholder="Grace"
+                          value={form.firstName}
+                          onChange={(e) => set("firstName", e.target.value)}
+                          required
+                          autoComplete="given-name"
+                        />
+                      </div>
+                    </div>
+                    <div className="np-field">
+                      <label className="np-lbl">PRAYER BEDTIME</label>
+                      <div className="np-iw">
+                        <span className="np-ii" style={{ fontSize: "0.78rem" }}>🕐</span>
+                        <select
+                          className="np-input has-icon"
+                          value={form.deliveryTime}
+                          onChange={(e) => set("deliveryTime", e.target.value)}
+                        >
+                          {TIMES.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* timezone */}
+                  <div className="np-field">
+                    <label className="np-lbl">TIMEZONE</label>
+                    <select
+                      className="np-input"
+                      value={form.timezone}
+                      onChange={(e) => set("timezone", e.target.value)}
+                    >
+                      {TIMEZONES.map((tz) => (
+                        <option key={tz.value} value={tz.value}>{tz.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* prayer style / focus */}
+                  <div className="np-field">
+                    <label className="np-lbl">
+                      PRAYER STYLE / FOCUS{" "}
+                      <span className="np-lbl-opt">(OPTIONAL)</span>
+                    </label>
+                    <div className="np-iw">
+                      <span className="np-ii" style={{ fontSize: "0.7rem" }}>✦</span>
+                      <select
+                        className="np-input has-icon"
+                        value={form.tone}
+                        onChange={(e) => set("tone", e.target.value)}
+                      >
+                        {TONES.map((t) => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* SMS consent */}
+                  {plan === "sms" && (
+                    <label className="np-consent">
+                      <input
+                        type="checkbox"
+                        checked={form.smsConsent}
+                        onChange={(e) => set("smsConsent", e.target.checked)}
+                      />
+                      <span>
+                        I agree to receive nightly prayer SMS messages from Nightly Prayer.
+                        Standard message &amp; data rates may apply. Reply STOP to cancel anytime.
+                      </span>
+                    </label>
+                  )}
+
+                  {/* CTA */}
+                  <button type="submit" className="np-cta" disabled={loading}>
+                    <span style={{ fontSize: "0.78rem", opacity: 0.9 }}>✦</span>
+                    <span className="np-cta-label">
+                      {loading ? "Preparing your trial…" : "START MY FREE 7-NIGHT TRIAL"}
+                    </span>
+                    <span style={{ fontSize: "1rem" }}>→</span>
+                  </button>
+
+                  {error && <div className="np-err">{error}</div>}
+
+                  {/* trust row */}
+                  <div className="np-trust">
+                    <span className="np-trust-it">
+                      <svg width="11" height="13" viewBox="0 0 11 13" fill="none"><path d="M5.5 1L1 3v4c0 2.5 1.9 4.8 4.5 5.5C8.1 11.8 10 9.5 10 7V3L5.5 1Z" stroke="#9CA3AF" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                      No charge today
+                    </span>
+                    <span className="np-trust-it">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v5l3 2" stroke="#9CA3AF" strokeWidth="1.2" strokeLinecap="round"/><circle cx="6" cy="6" r="5" stroke="#9CA3AF" strokeWidth="1.2"/></svg>
+                      Cancel anytime
+                    </span>
+                    <span className="np-trust-it">
+                      <svg width="13" height="12" viewBox="0 0 13 12" fill="none"><path d="M1.5 6.5l3 3 7-7" stroke="#9CA3AF" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      7 nights free
+                    </span>
+                    <span className="np-trust-it">
+                      <svg width="11" height="13" viewBox="0 0 11 13" fill="none"><rect x="1" y="5" width="9" height="7" rx="1.5" stroke="#9CA3AF" strokeWidth="1.2"/><path d="M3.5 5V3.5a2 2 0 014 0V5" stroke="#9CA3AF" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                      No app needed
+                    </span>
+                  </div>
+                  <div className="np-trust-stripe">
+                    🔒 Secure checkout powered by Stripe
+                  </div>
+
+                </form>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+      </div>
     </>
   );
 }
