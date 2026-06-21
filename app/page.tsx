@@ -8,7 +8,7 @@ export default function Home() {
   return (
     <>
       <div className="stars" aria-hidden="true" />
-      <Navbar />
+      <Navbar dark />
       <main style={{ position: "relative" }}>
         <RevealOnScroll />
         <HomeClient smsPriceAvailable={smsPriceAvailable} />
