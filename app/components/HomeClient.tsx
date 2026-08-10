@@ -683,7 +683,7 @@ export default function HomeClient() {
                   delivered at the bedtime you choose.
                 </p>
 
-                <div className="np-features">
+                <div id="how-it-works" className="np-features">
                   {([
                     { icon: "✉", label: "Personal &\nmeaningful" },
                     { icon: "🌙", label: "Arrives at your\nbedtime" },
@@ -735,7 +735,7 @@ export default function HomeClient() {
         </section>
 
         {/* ── SIGNUP ───────────────────────────────────────────── */}
-        <section className="np-signup">
+        <section id="pricing" className="np-signup">
           <div className="np-con">
             <div className="np-signup-box">
 

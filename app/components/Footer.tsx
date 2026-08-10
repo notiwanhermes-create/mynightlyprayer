@@ -3,6 +3,7 @@ import Link from "next/link";
 export default function Footer() {
   return (
     <footer
+      id="about"
       style={{
         position:  "relative",
         zIndex:    1,
